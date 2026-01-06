@@ -49,6 +49,8 @@ const io = new Server(httpServer, {
  */
 const rooms = new Map();
 
+/* ----------------------------- helpers ----------------------------- */
+
 function mkCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -61,25 +63,6 @@ function getRoom(code) {
   const r = rooms.get(c);
   if (!r) throw new Error("Sala não existe");
   return r;
-}
-
-function publicState(r) {
-  return {
-    code: r.code,
-    seats: r.seats.map((s) => (s ? "occupied" : "empty")),
-    names: r.names,
-    ready: r.ready,
-    phase: r.phase,
-    trumpSuit: r.trumpSuit,
-    faceUp: r.faceUp, // se existir no seu game no futuro, ok. Se não, fica undefined
-    leaderSeat: r.leaderSeat,
-    turnSeat: r.turnSeat,
-    turnDeadline: r.turnDeadline,
-    trick: r.trick,
-    teamScore: r.teamScore,
-    tricksPlayed: r.tricksPlayed,
-    chat: r.chat.slice(-25),
-  };
 }
 
 function seatOf(r, socketId) {
@@ -109,16 +92,69 @@ function maybeCloseRoom(r) {
   return false;
 }
 
+/** ✅ Public state seguro (não revela mãos) */
+function publicState(r) {
+  return {
+    code: r.code,
+    seats: r.seats.map((s) => (s ? "occupied" : "empty")),
+    names: r.names,
+    ready: r.ready,
+    phase: r.phase,
+
+    trumpSuit: r.trumpSuit,
+    faceUp: r.faceUp, // opcional (se você usar depois)
+
+    leaderSeat: r.leaderSeat,
+    turnSeat: r.turnSeat,
+    turnDeadline: r.turnDeadline,
+
+    trick: r.trick,
+    teamScore: r.teamScore,
+    tricksPlayed: r.tricksPlayed,
+
+    // ✅ NOVO: para UI (deck e contadores), sem vazar cartas:
+    deckCount: r.deck?.length ?? 0,
+    handCount: Array.isArray(r.hands) ? r.hands.map((h) => h?.length ?? 0) : [0, 0, 0, 0],
+
+    chat: r.chat.slice(-25),
+  };
+}
+
+function sendHands(r) {
+  for (let s = 0; s < 4; s++) {
+    const sid = r.seats[s];
+    if (sid) io.to(sid).emit("hand", r.hands[s]);
+  }
+}
+
+/** Scoring simples: soma cardPoints + bônus última vaza (1 ponto) */
+function scoreTrick(cards, trumpSuit, isLastTrick) {
+  const base = cards.reduce((sum, c) => sum + cardPoints(c), 0);
+  return isLastTrick ? base + 1 : base;
+}
+
+function autoPlayLowest(r, seat) {
+  const hand = r.hands[seat];
+  if (!hand || hand.length === 0) return null;
+  let best = hand[0];
+  for (const c of hand.slice(1)) {
+    if (strengthRank(c, r.trumpSuit) < strengthRank(best, r.trumpSuit)) best = c;
+  }
+  return best;
+}
+
+/* ----------------------------- game flow ----------------------------- */
+
 function startGame(r) {
   r.phase = "playing";
   r.deck = shuffle(makeDeck());
 
-  // trunfo simples: último card do deck
+  // trunfo simples: último card do deck (naipe)
   r.trumpSuit = r.deck[r.deck.length - 1]?.s ?? null;
 
   r.hands = [[], [], [], []];
 
-  // Mantendo como você já vinha usando: 3 cartas por jogador
+  // Mantendo seu MVP: 3 cartas por jogador
   for (let i = 0; i < 4; i++) r.hands[i] = r.deck.splice(0, 3);
 
   r.trick = [];
@@ -140,34 +176,12 @@ function canPlay(r, seat, cardId) {
   return { ok: true };
 }
 
-// Scoring simples: soma cardPoints + bônus última vaza (se quiser)
-function scoreTrick(cards, trumpSuit, isLastTrick) {
-  const base = cards.reduce((sum, c) => sum + cardPoints(c), 0);
-  return isLastTrick ? base + 1 : base;
-}
-
-function sendHands(r) {
-  for (let s = 0; s < 4; s++) {
-    const sid = r.seats[s];
-    if (sid) io.to(sid).emit("hand", r.hands[s]);
-  }
-}
-
-function autoPlayLowest(r, seat) {
-  const hand = r.hands[seat];
-  if (!hand || hand.length === 0) return null;
-  let best = hand[0];
-  for (const c of hand.slice(1)) {
-    if (strengthRank(c, r.trumpSuit) < strengthRank(best, r.trumpSuit)) best = c;
-  }
-  return best;
-}
+/* ----------------------------- socket events ----------------------------- */
 
 io.on("connection", (socket) => {
   console.log("✅ Conectou:", socket.id);
 
   socket.on("create_room", ({ name }, cb) => {
-    // garante código único
     let code = mkCode();
     while (rooms.has(code)) code = mkCode();
 
@@ -220,14 +234,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  /** ✅ NOVO: sair da sala manualmente */
+  /** ✅ Sair manualmente da sala */
   socket.on("leave_room", ({ code }, cb) => {
     try {
       const r = getRoom(code);
       const seat = seatOf(r, socket.id);
       if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
 
-      // libera o assento
       r.seats[seat] = null;
       r.names[seat] = "";
       r.ready[seat] = false;
@@ -241,7 +254,6 @@ io.on("connection", (socket) => {
 
       socket.leave(r.code);
 
-      // avisa os demais
       io.to(r.code).emit("state", publicState(r));
 
       // ✅ se ficou vazia, fecha
@@ -269,11 +281,9 @@ io.on("connection", (socket) => {
       }
 
       cb?.({ ok: true });
-      io.to(r.code).emit("state", publicState(r));
 
-      if (r.phase === "playing") {
-        sendHands(r);
-      }
+      io.to(r.code).emit("state", publicState(r));
+      if (r.phase === "playing") sendHands(r);
     } catch (e) {
       cb?.({ ok: false, err: e.message });
     }
@@ -320,6 +330,7 @@ io.on("connection", (socket) => {
       }
 
       cb?.({ ok: true });
+
       io.to(r.code).emit("state", publicState(r));
       sendHands(r);
     } catch (e) {
@@ -345,7 +356,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // limpa assento e atualiza a sala
     for (const r of rooms.values()) {
       const seat = seatOf(r, socket.id);
       if (seat >= 0) {
@@ -368,11 +378,11 @@ io.on("connection", (socket) => {
     }
   });
 
-  // (Opcional) Autoplay - DESATIVADO por padrão (para evitar referência faltando).
-  // Se quiser reativar com segurança, eu adapto ao seu state atual.
-  // Exemplo de reativação:
-  // const AUTOPLAY = process.env.AUTOPLAY === "1";
+  // Autoplay (opcional) — está preparado, mas desativado aqui.
+  // Se quiser, eu reintroduzo com segurança para seu state atual.
 });
+
+/* ----------------------------- listen ----------------------------- */
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => console.log("Server on :", PORT));
