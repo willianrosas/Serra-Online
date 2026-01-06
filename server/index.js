@@ -2,8 +2,13 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import {
-  makeDeck, shuffle, trickWinner, teamOfSeat, nextSeat,
-  cardPoints, strengthRank
+  makeDeck,
+  shuffle,
+  trickWinner,
+  teamOfSeat,
+  nextSeat,
+  cardPoints,
+  strengthRank,
 } from "./game.js";
 
 const app = express();
@@ -12,8 +17,8 @@ app.get("/health", (_, res) => res.send("OK"));
 
 const httpServer = createServer(app);
 
-// ✅ CORS: em produção, coloque sua URL da Vercel em CLIENT_ORIGIN no Render.
-// Ex: https://serra-online.vercel.app
+// ✅ Em produção, defina CLIENT_ORIGIN no Render (ex: https://seu-app.vercel.app)
+// Se não definir, fica "*" (aberto) para facilitar testes.
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "*";
 
 const io = new Server(httpServer, {
@@ -66,13 +71,14 @@ function publicState(r) {
     ready: r.ready,
     phase: r.phase,
     trumpSuit: r.trumpSuit,
+    faceUp: r.faceUp, // se existir no seu game no futuro, ok. Se não, fica undefined
     leaderSeat: r.leaderSeat,
     turnSeat: r.turnSeat,
+    turnDeadline: r.turnDeadline,
     trick: r.trick,
     teamScore: r.teamScore,
     tricksPlayed: r.tricksPlayed,
     chat: r.chat.slice(-25),
-    turnDeadline: r.turnDeadline,
   };
 }
 
@@ -87,6 +93,22 @@ function clearTurnDeadline(r) {
   r.turnDeadline = null;
 }
 
+/** ✅ Auto-fechar sala vazia */
+function roomIsEmpty(r) {
+  return r.seats.every((s) => s === null);
+}
+function closeRoom(r) {
+  rooms.delete(r.code);
+  console.log("🧹 Sala vazia removida:", r.code);
+}
+function maybeCloseRoom(r) {
+  if (roomIsEmpty(r)) {
+    closeRoom(r);
+    return true;
+  }
+  return false;
+}
+
 function startGame(r) {
   r.phase = "playing";
   r.deck = shuffle(makeDeck());
@@ -96,8 +118,7 @@ function startGame(r) {
 
   r.hands = [[], [], [], []];
 
-  // ⚠️ Seu comentário diz "4 cada", mas o código distribui 3.
-  // Vou manter 3 (como você já vinha usando). Se quiser 4, trocamos depois.
+  // Mantendo como você já vinha usando: 3 cartas por jogador
   for (let i = 0; i < 4; i++) r.hands[i] = r.deck.splice(0, 3);
 
   r.trick = [];
@@ -146,7 +167,10 @@ io.on("connection", (socket) => {
   console.log("✅ Conectou:", socket.id);
 
   socket.on("create_room", ({ name }, cb) => {
-    const code = mkCode();
+    // garante código único
+    let code = mkCode();
+    while (rooms.has(code)) code = mkCode();
+
     const room = {
       code,
       seats: [null, null, null, null],
@@ -156,6 +180,7 @@ io.on("connection", (socket) => {
       deck: [],
       hands: [[], [], [], []],
       trumpSuit: null,
+      faceUp: null, // opcional
       leaderSeat: 0,
       turnSeat: 0,
       turnDeadline: null,
@@ -164,11 +189,11 @@ io.on("connection", (socket) => {
       teamScore: [0, 0],
       chat: [],
     };
+
     rooms.set(code, room);
 
     room.seats[0] = socket.id;
     room.names[0] = (name && String(name).trim()) || "Jogador 1";
-
     socket.join(code);
 
     cb?.({ ok: true, code, seat: 0, state: publicState(room) });
@@ -178,6 +203,7 @@ io.on("connection", (socket) => {
   socket.on("join_room", ({ code, name }, cb) => {
     try {
       const r = getRoom(code);
+
       const seat = r.seats.findIndex((s) => s === null);
       if (seat === -1) return cb?.({ ok: false, err: "Sala cheia" });
 
@@ -189,6 +215,39 @@ io.on("connection", (socket) => {
 
       cb?.({ ok: true, code: r.code, seat, state: publicState(r) });
       io.to(r.code).emit("state", publicState(r));
+    } catch (e) {
+      cb?.({ ok: false, err: e.message });
+    }
+  });
+
+  /** ✅ NOVO: sair da sala manualmente */
+  socket.on("leave_room", ({ code }, cb) => {
+    try {
+      const r = getRoom(code);
+      const seat = seatOf(r, socket.id);
+      if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
+
+      // libera o assento
+      r.seats[seat] = null;
+      r.names[seat] = "";
+      r.ready[seat] = false;
+
+      // MVP: volta pro lobby e reseta estado básico
+      r.phase = "lobby";
+      clearTurnDeadline(r);
+      r.trick = [];
+      r.teamScore = [0, 0];
+      r.tricksPlayed = 0;
+
+      socket.leave(r.code);
+
+      // avisa os demais
+      io.to(r.code).emit("state", publicState(r));
+
+      // ✅ se ficou vazia, fecha
+      maybeCloseRoom(r);
+
+      cb?.({ ok: true });
     } catch (e) {
       cb?.({ ok: false, err: e.message });
     }
@@ -240,7 +299,6 @@ io.on("connection", (socket) => {
       // fechou a vaza?
       if (r.trick.length === 4) {
         const winner = trickWinner(r.trick, r.trumpSuit);
-
         r.leaderSeat = winner;
         r.turnSeat = winner;
 
@@ -286,37 +344,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("leave_room", ({ code }, cb) => {
-  try {
-    const r = getRoom(code);
-    const seat = seatOf(r, socket.id);
-    if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
-
-    // libera o assento
-    r.seats[seat] = null;
-    r.names[seat] = "";
-    r.ready[seat] = false;
-
-    // volta pro lobby e reseta estado (MVP)
-    r.phase = "lobby";
-    clearTurnDeadline(r);
-    r.trick = [];
-    r.teamScore = [0, 0];
-    r.tricksPlayed = 0;
-
-    // sai do room do socket.io
-    socket.leave(r.code);
-
-    // avisa todos
-    io.to(r.code).emit("state", publicState(r));
-
-    cb?.({ ok: true });
-  } catch (e) {
-    cb?.({ ok: false, err: e.message });
-  }
-});
-
   socket.on("disconnect", () => {
+    // limpa assento e atualiza a sala
     for (const r of rooms.values()) {
       const seat = seatOf(r, socket.id);
       if (seat >= 0) {
@@ -329,44 +358,21 @@ io.on("connection", (socket) => {
         clearTurnDeadline(r);
         r.trick = [];
         r.teamScore = [0, 0];
+        r.tricksPlayed = 0;
 
         io.to(r.code).emit("state", publicState(r));
+
+        // ✅ se ficou vazia, fecha
+        maybeCloseRoom(r);
       }
     }
   });
+
+  // (Opcional) Autoplay - DESATIVADO por padrão (para evitar referência faltando).
+  // Se quiser reativar com segurança, eu adapto ao seu state atual.
+  // Exemplo de reativação:
+  // const AUTOPLAY = process.env.AUTOPLAY === "1";
 });
-
-// ✅ Autoplay: DESATIVADO por segurança (o seu bloco antigo referencia variáveis/funções ausentes).
-// Quando você quiser reativar, eu reescrevo o autoplay alinhado com ESTE state.
-// const AUTOPLAY = process.env.AUTOPLAY === "1";
-// if (AUTOPLAY) {
-//   setInterval(() => {
-//     const now = Date.now();
-//     for (const r of rooms.values()) {
-//       if (r.phase !== "playing") continue;
-//       if (!r.turnDeadline) continue;
-//       if (now < r.turnDeadline) continue;
-//       const seat = r.turnSeat;
-//       const sid = r.seats[seat];
-//       if (!sid) continue;
-
-//       const card = autoPlayLowest(r, seat);
-//       if (!card) { setTurnDeadline(r); continue; }
-
-//       const i = r.hands[seat].findIndex(c => c.id === card.id);
-//       if (i >= 0) r.hands[seat].splice(i, 1);
-
-//       r.trick.push({ seat, card });
-//       r.turnSeat = nextSeat(r.turnSeat);
-
-//       r.chat.push({ name: "Sistema", msg: `⏱️ Tempo esgotado: ${r.names[seat] || "Jogador"} jogou ${card.v}${card.s}`, ts: Date.now() });
-
-//       io.to(r.code).emit("state", publicState(r));
-//       sendHands(r);
-//       setTurnDeadline(r);
-//     }
-//   }, 500);
-// }
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => console.log("Server on :", PORT));
