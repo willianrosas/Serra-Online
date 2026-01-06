@@ -1,0 +1,12 @@
+{
+  "name": "serra-server",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
