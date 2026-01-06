@@ -131,16 +131,20 @@ export default function App() {
   }
 
   function leaveRoomLocal() {
-    // (opcional) se você criar um evento no server futuramente, pode emitir aqui:
-    // socket.emit("room:leave", { code: state?.code });
+  const roomCode = state?.code;
+  if (!roomCode) return;
 
+  socket.emit("leave_room", { code: roomCode }, () => {
+    // independente do retorno, limpa a UI local
     setState(null);
     setSeat(null);
     setHand([]);
     setChatMsg("");
     setCodeInput("");
     setCopied(false);
-  }
+  });
+}
+
 
   const isMyTurn = phase === "playing" && state?.turnSeat === seat;
 

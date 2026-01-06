@@ -286,6 +286,36 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("leave_room", ({ code }, cb) => {
+  try {
+    const r = getRoom(code);
+    const seat = seatOf(r, socket.id);
+    if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
+
+    // libera o assento
+    r.seats[seat] = null;
+    r.names[seat] = "";
+    r.ready[seat] = false;
+
+    // volta pro lobby e reseta estado (MVP)
+    r.phase = "lobby";
+    clearTurnDeadline(r);
+    r.trick = [];
+    r.teamScore = [0, 0];
+    r.tricksPlayed = 0;
+
+    // sai do room do socket.io
+    socket.leave(r.code);
+
+    // avisa todos
+    io.to(r.code).emit("state", publicState(r));
+
+    cb?.({ ok: true });
+  } catch (e) {
+    cb?.({ ok: false, err: e.message });
+  }
+});
+
   socket.on("disconnect", () => {
     for (const r of rooms.values()) {
       const seat = seatOf(r, socket.id);
