@@ -14,6 +14,63 @@ const UI = {
   bad: "rgba(255,92,122,.95)",
 };
 
+function Icon({ name, size = 16 }) {
+  const style = { width: size, height: size, display: "inline-block", opacity: 0.95 };
+  if (name === "plus")
+    return (
+      <svg style={style} viewBox="0 0 24 24" fill="none">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  if (name === "enter")
+    return (
+      <svg style={style} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M10 17l5-5-5-5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M15 12H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M20 4v16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+      </svg>
+    );
+  if (name === "copy")
+    return (
+      <svg style={style} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M8 8h10v12H8V8z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M6 16H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.7"
+        />
+      </svg>
+    );
+  if (name === "exit")
+    return (
+      <svg style={style} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M10 17l-5-5 5-5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M5 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M14 4h6v16h-6" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" opacity="0.7" />
+      </svg>
+    );
+  return null;
+}
+
 function Button({ variant = "primary", disabled, children, style, ...props }) {
   const base = {
     padding: "11px 12px",
@@ -23,10 +80,14 @@ function Button({ variant = "primary", disabled, children, style, ...props }) {
     color: UI.text,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.55 : 1,
-    fontWeight: 900,
+    fontWeight: 1000,
     letterSpacing: 0.2,
     transition: "transform .06s ease, opacity .2s ease",
     whiteSpace: "nowrap",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   };
   const variants = {
     primary: {
@@ -145,18 +206,20 @@ function LoadingOverlay({ show, text = "Carregando…" }) {
     >
       <div
         style={{
-          width: 420,
+          width: 460,
           maxWidth: "92vw",
           borderRadius: 18,
           border: `1px solid ${UI.border}`,
           background: UI.panel,
           padding: 18,
           textAlign: "center",
+          boxShadow: "0 18px 60px rgba(0,0,0,.55)",
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 1000, marginBottom: 8 }}>{text}</div>
         <div style={{ color: UI.muted, fontSize: 12 }}>“No barracão, a gente embaralha o destino…”</div>
-        <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 10, alignItems: "center" }}>
           <div
             style={{
               width: 44,
@@ -167,9 +230,15 @@ function LoadingOverlay({ show, text = "Carregando…" }) {
               animation: "spin 0.9s linear infinite",
             }}
           />
+          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(110,231,255,.8)", animation: "pulse 1s ease-in-out infinite" }} />
+          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(255,209,102,.8)", animation: "pulse 1s ease-in-out .15s infinite" }} />
+          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(255,92,122,.8)", animation: "pulse 1s ease-in-out .30s infinite" }} />
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { transform: translateY(0); opacity:.6; } 50% { transform: translateY(-4px); opacity:1; } }
+      `}</style>
     </div>
   );
 }
@@ -246,6 +315,9 @@ export default function App() {
 
   const isMyTurn = phase === "playing" && state?.turnSeat === seat;
 
+  const codeNormalized = useMemo(() => String(codeInput || "").trim().toUpperCase().slice(0, 5), [codeInput]);
+  const codeLooksValid = useMemo(() => /^[A-Z0-9]{5}$/.test(codeNormalized), [codeNormalized]);
+
   async function copyRoomCode() {
     try {
       await navigator.clipboard.writeText(state?.code || "");
@@ -290,9 +362,10 @@ export default function App() {
 
   function joinRoom() {
     const n = String(name || "").trim();
-    const c = String(codeInput || "").trim().toUpperCase();
+    const c = codeNormalized;
     if (!n) return alert("Digite seu nome.");
     if (!c) return alert("Digite o código da sala.");
+    if (!codeLooksValid) return alert("Código inválido (use 5 caracteres).");
     setLoading(true);
     socket.emit("join_room", { code: c, name: n }, (res) => {
       setLoading(false);
@@ -332,6 +405,7 @@ export default function App() {
           </Pill>
           {inRoom && (
             <Button variant="danger" onClick={leaveRoom} disabled={loading}>
+              <Icon name="exit" />
               Sair
             </Button>
           )}
@@ -340,7 +414,6 @@ export default function App() {
 
       <div style={{ marginTop: 16, maxWidth: 1180 }}>
         {!inRoom ? (
-          /* ------------------------ START SCREEN ------------------------ */
           <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "start" }}>
             <Panel title="Entrar no jogo" right={<Pill tone="accent">61+ pontos</Pill>}>
               <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
@@ -349,49 +422,52 @@ export default function App() {
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
 
-                {/* ✅ FIX: grid responsivo (sem sobreposição) */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "auto 1fr auto",
-                    gap: 10,
-                    alignItems: "center",
-                  }}
-                >
-                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ minWidth: 120 }}>
+                {/* ✅ FIX DEFINITIVO: GRID + campo menor */}
+                <div className="start-actions">
+                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ minWidth: 140 }}>
+                    <Icon name="plus" />
                     Criar sala
                   </Button>
 
-                  <Input
-                    placeholder="CÓDIGO DA SALA"
-                    value={codeInput}
-                    onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-                  />
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <Input
+                      placeholder="CÓDIGO"
+                      value={codeNormalized}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      style={{
+                        textTransform: "uppercase",
+                        letterSpacing: 3,
+                        textAlign: "center",
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn }}>
+                      {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código ok" : "Código inválido"}
+                    </div>
+                  </div>
 
-                  <Button onClick={joinRoom} disabled={conn !== "online"} style={{ minWidth: 92 }}>
+                  <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid} style={{ minWidth: 110 }}>
+                    <Icon name="enter" />
                     Entrar
                   </Button>
                 </div>
-
-                {/* Mobile: empilha os botões */}
-                <div
-                  style={{
-                    display: "none",
-                  }}
-                />
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <Pill>Compartilhe o código com amigos</Pill>
                   <Pill>Lobby inicia quando 4 estiverem prontos</Pill>
                 </div>
 
-                {/* CSS simples: em telas pequenas, vira 2 linhas */}
                 <style>{`
-                  @media (max-width: 620px) {
-                    .start-actions {
+                  .start-actions{
+                    display:grid;
+                    grid-template-columns: auto 160px auto;
+                    gap:10px;
+                    align-items:start;
+                  }
+                  @media (max-width: 720px){
+                    .start-actions{
                       grid-template-columns: 1fr 1fr;
                     }
-                    .start-actions > :nth-child(2) {
+                    .start-actions > :nth-child(2){
                       grid-column: 1 / -1;
                     }
                   }
@@ -405,15 +481,15 @@ export default function App() {
                 <div>🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b></div>
                 <div>👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b></div>
                 <div>
-                  ✨ Dourado: <b style={{ color: UI.text }}>A♦</b> (quando trunfo da rodada for{" "}
-                  <b style={{ color: UI.text }}>♣</b>)
+                  ✨ Dourado: <b style={{ color: UI.text }}>A♦</b> (quando trunfo da rodada for <b style={{ color: UI.text }}>♣</b>)
                 </div>
-                <div style={{ marginTop: 8 }}>🃏 Trunfo da rodada é uma <b style={{ color: UI.text }}>carta real</b> virada.</div>
+                <div style={{ marginTop: 8 }}>
+                  🃏 Trunfo da rodada é uma <b style={{ color: UI.text }}>carta real</b> virada.
+                </div>
               </div>
             </Panel>
           </div>
         ) : (
-          /* ------------------------- IN ROOM -------------------------- */
           <div style={{ display: "grid", gap: 14 }}>
             <Panel
               title="Sala"
@@ -453,7 +529,8 @@ export default function App() {
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <Button variant="ghost" onClick={copyRoomCode}>
-                      {copied ? "✅ Copiado!" : "Copiar código"}
+                      <Icon name="copy" />
+                      {copied ? "Copiado!" : "Copiar"}
                     </Button>
                     {phase === "lobby" && (
                       <Button onClick={() => socket.emit("set_ready", { code: state.code, ready: !myReady })}>
@@ -507,7 +584,7 @@ export default function App() {
                       {state.faceUp ? (
                         <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
                       ) : (
-                        <div style={{ color: UI.muted, fontSize: 12 }}>(ainda não enviada pelo servidor como carta — vamos ajustar)</div>
+                        <div style={{ color: UI.muted, fontSize: 12 }}>(ainda não enviada pelo servidor como carta)</div>
                       )}
                     </div>
                   </div>
