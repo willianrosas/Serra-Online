@@ -575,7 +575,7 @@ export default function App() {
     		top: 37,
     		left: "50%",
     		transform: "translateX(-50%)",
-    		zIndex: 3,
+    		zIndex: 4,
     		pointerEvents: "none",
   		}}
 	>
