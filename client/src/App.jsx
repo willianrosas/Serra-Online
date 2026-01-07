@@ -572,7 +572,7 @@ export default function App() {
         <div
   	style={{
     		position: "absolute",
-    		top: 34,
+    		top: 37,
     		left: "50%",
     		transform: "translateX(-50%)",
     		zIndex: 3,
@@ -583,8 +583,8 @@ export default function App() {
     	  src="/logo-sem-fundo.png"
     	  alt="Serra Online"
     	  style={{
-     	   height: 140,
-      	   opacity: 0.98,
+     	   height: 250,
+      	   opacity: 0.99,
       	   filter: `
         	drop-shadow(0 18px 38px rgba(0,0,0,.65))
         	drop-shadow(0 2px 6px rgba(255,215,120,.25))
