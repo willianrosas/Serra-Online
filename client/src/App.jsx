@@ -26,6 +26,7 @@ function Button({ variant = "primary", disabled, children, style, ...props }) {
     fontWeight: 900,
     letterSpacing: 0.2,
     transition: "transform .06s ease, opacity .2s ease",
+    whiteSpace: "nowrap",
   };
   const variants = {
     primary: {
@@ -183,7 +184,7 @@ export default function App() {
 
   const [chatMsg, setChatMsg] = useState("");
 
-  const [conn, setConn] = useState(socket.connected ? "online" : "connecting"); // connecting|online|offline
+  const [conn, setConn] = useState(socket.connected ? "online" : "connecting");
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
   const [copied, setCopied] = useState(false);
@@ -199,9 +200,6 @@ export default function App() {
 
     socket.on("state", setState);
     socket.on("hand", setHand);
-
-    // garante tentativa de conexão
-    if (!socket.connected) socket.connect();
 
     return () => {
       socket.off("connect", onConnect);
@@ -272,33 +270,15 @@ export default function App() {
     const roomCode = state?.code;
     if (!roomCode) return resetLocal();
     setLoading(true);
-
-    // Se o server não tiver leave_room ainda, o callback pode não vir.
-    // Mesmo assim, a gente se limpa localmente após 400ms.
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      resetLocal();
-    };
-
     socket.emit("leave_room", { code: roomCode }, () => {
-      setLoading(false);
-      finish();
+      resetLocal();
     });
-
-    setTimeout(() => {
-      setLoading(false);
-      finish();
-    }, 400);
   }
 
   function createRoom() {
     const n = String(name || "").trim();
     if (!n) return alert("Digite seu nome.");
-    if (conn !== "online") return alert("Servidor offline. Verifique backend/URL do socket.");
     setLoading(true);
-
     socket.emit("create_room", { name: n }, (res) => {
       setLoading(false);
       if (!res?.ok) return alert(res?.err || "Erro ao criar sala");
@@ -313,9 +293,7 @@ export default function App() {
     const c = String(codeInput || "").trim().toUpperCase();
     if (!n) return alert("Digite seu nome.");
     if (!c) return alert("Digite o código da sala.");
-    if (conn !== "online") return alert("Servidor offline. Verifique backend/URL do socket.");
     setLoading(true);
-
     socket.emit("join_room", { code: c, name: n }, (res) => {
       setLoading(false);
       if (!res?.ok) return alert(res?.err || "Erro ao entrar");
@@ -363,14 +341,7 @@ export default function App() {
       <div style={{ marginTop: 16, maxWidth: 1180 }}>
         {!inRoom ? (
           /* ------------------------ START SCREEN ------------------------ */
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.25fr .75fr",
-              gap: 14,
-              alignItems: "start",
-            }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "start" }}>
             <Panel title="Entrar no jogo" right={<Pill tone="accent">61+ pontos</Pill>}>
               <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
                 <div style={{ display: "grid", gap: 6 }}>
@@ -378,7 +349,7 @@ export default function App() {
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
 
-                {/* ✅ sem sobreposição: grid */}
+                {/* ✅ FIX: grid responsivo (sem sobreposição) */}
                 <div
                   style={{
                     display: "grid",
@@ -387,7 +358,7 @@ export default function App() {
                     alignItems: "center",
                   }}
                 >
-                  <Button onClick={createRoom} disabled={conn !== "online"}>
+                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ minWidth: 120 }}>
                     Criar sala
                   </Button>
 
@@ -397,42 +368,47 @@ export default function App() {
                     onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   />
 
-                  <Button onClick={joinRoom} disabled={conn !== "online"}>
+                  <Button onClick={joinRoom} disabled={conn !== "online"} style={{ minWidth: 92 }}>
                     Entrar
                   </Button>
                 </div>
+
+                {/* Mobile: empilha os botões */}
+                <div
+                  style={{
+                    display: "none",
+                  }}
+                />
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <Pill>Compartilhe o código com amigos</Pill>
                   <Pill>Lobby inicia quando 4 estiverem prontos</Pill>
                 </div>
 
-                {conn !== "online" && (
-                  <div style={{ marginTop: 8, color: UI.warn, fontSize: 12, fontWeight: 900 }}>
-                    ⚠️ Socket offline. Ajuste a URL em <code style={{ color: UI.text }}>client/src/net.js</code>
-                  </div>
-                )}
+                {/* CSS simples: em telas pequenas, vira 2 linhas */}
+                <style>{`
+                  @media (max-width: 620px) {
+                    .start-actions {
+                      grid-template-columns: 1fr 1fr;
+                    }
+                    .start-actions > :nth-child(2) {
+                      grid-column: 1 / -1;
+                    }
+                  }
+                `}</style>
               </div>
             </Panel>
 
             <Panel title="Trunfos universais (visuais)">
               <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.55 }}>
-                <div>
-                  🐝 Zangão: <b style={{ color: UI.text }}>3♣</b>
-                </div>
-                <div>
-                  🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b>
-                </div>
-                <div>
-                  👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b>
-                </div>
+                <div>🐝 Zangão: <b style={{ color: UI.text }}>3♣</b></div>
+                <div>🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b></div>
+                <div>👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b></div>
                 <div>
                   ✨ Dourado: <b style={{ color: UI.text }}>A♦</b> (quando trunfo da rodada for{" "}
                   <b style={{ color: UI.text }}>♣</b>)
                 </div>
-                <div style={{ marginTop: 8 }}>
-                  🃏 Trunfo da rodada é uma <b style={{ color: UI.text }}>carta real</b> virada.
-                </div>
+                <div style={{ marginTop: 8 }}>🃏 Trunfo da rodada é uma <b style={{ color: UI.text }}>carta real</b> virada.</div>
               </div>
             </Panel>
           </div>
@@ -500,13 +476,11 @@ export default function App() {
                       líder: <b style={{ color: UI.text }}>Seat {(state.leaderSeat ?? 0) + 1}</b>
                     </Pill>
                     <Pill tone={isMyTurn ? "good" : "neutral"}>
-                      turno: <b style={{ color: UI.text }}>Seat {(state.turnSeat ?? 0) + 1}</b>{" "}
-                      {isMyTurn ? "(você)" : ""}
+                      turno: <b style={{ color: UI.text }}>Seat {(state.turnSeat ?? 0) + 1}</b> {isMyTurn ? "(você)" : ""}
                     </Pill>
                   </div>
                 }
               >
-                {/* Trick */}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {(state.trick || []).map((t, i) => (
                     <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
@@ -519,7 +493,6 @@ export default function App() {
                   {(!state.trick || state.trick.length === 0) && <div style={{ color: UI.muted }}>Aguardando jogadas…</div>}
                 </div>
 
-                {/* Deck + Trump card area */}
                 <div style={{ marginTop: 14, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
                   <DeckStack count={state.deckCount ?? 0} />
 
@@ -534,22 +507,17 @@ export default function App() {
                       {state.faceUp ? (
                         <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
                       ) : (
-                        <div style={{ color: UI.muted, fontSize: 12 }}>(ainda não enviada pelo servidor como carta)</div>
+                        <div style={{ color: UI.muted, fontSize: 12 }}>(ainda não enviada pelo servidor como carta — vamos ajustar)</div>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Hand */}
                 <div style={{ marginTop: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                     <h3 style={{ margin: "0 0 8px", fontSize: 14, letterSpacing: 0.2 }}>Sua mão</h3>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
-                      {phase === "playing"
-                        ? isMyTurn
-                          ? "Sua vez: jogue uma carta."
-                          : "Aguardando sua vez…"
-                        : "Aguardando início…"}
+                      {phase === "playing" ? (isMyTurn ? "Sua vez: jogue uma carta." : "Aguardando sua vez…") : "Aguardando início…"}
                     </div>
                   </div>
 
@@ -589,7 +557,6 @@ export default function App() {
               </Panel>
 
               <Panel title="Lobby / Chat">
-                {/* Seats */}
                 <div style={{ display: "grid", gap: 8 }}>
                   {state.names.map((n, i) => {
                     const occupied = !!n;
@@ -624,7 +591,6 @@ export default function App() {
                   })}
                 </div>
 
-                {/* Chat */}
                 <div
                   style={{
                     marginTop: 12,
@@ -638,8 +604,7 @@ export default function App() {
                 >
                   {(state.chat || []).map((m, i) => (
                     <div key={i} style={{ marginBottom: 8, lineHeight: 1.25 }}>
-                      <span style={{ fontWeight: 1000 }}>{m.name}:</span>{" "}
-                      <span style={{ color: UI.text }}>{m.msg}</span>
+                      <span style={{ fontWeight: 1000 }}>{m.name}:</span> <span style={{ color: UI.text }}>{m.msg}</span>
                     </div>
                   ))}
                   {(!state.chat || state.chat.length === 0) && <div style={{ color: UI.muted }}>Sem mensagens ainda…</div>}
