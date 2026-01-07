@@ -71,6 +71,8 @@ function Button({ variant = "primary", disabled, children, style, ...props }) {
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    minWidth: 0,
+    width: "100%",
   };
   const variants = {
     primary: {
@@ -201,15 +203,9 @@ function LoadingOverlay({ show, text = "Carregando…" }) {
               animation: "spin 0.9s linear infinite",
             }}
           />
-          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(110,231,255,.8)", animation: "pulse 1s ease-in-out infinite" }} />
-          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(255,209,102,.8)", animation: "pulse 1s ease-in-out .15s infinite" }} />
-          <div style={{ width: 8, height: 8, borderRadius: 99, background: "rgba(255,92,122,.8)", animation: "pulse 1s ease-in-out .30s infinite" }} />
         </div>
       </div>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%,100% { transform: translateY(0); opacity:.6; } 50% { transform: translateY(-4px); opacity:1; } }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -234,19 +230,120 @@ function Toast({ show, children }) {
   );
 }
 
-function EndModal({ show, title, subtitle, onRestart, onClose }) {
+function EndModal({ show, title, subtitle, onRestart }) {
   if (!show) return null;
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", zIndex: 999 }}>
       <div style={{ width: 520, maxWidth: "92vw", borderRadius: 18, border: `1px solid ${UI.border}`, background: UI.panel, padding: 18 }}>
         <div style={{ fontSize: 18, fontWeight: 1100 }}>{title}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
-
         <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <Button variant="ghost" onClick={onClose}>Fechar</Button>
-          <Button onClick={onRestart}>Nova rodada</Button>
+          <Button onClick={onRestart} style={{ width: "auto" }}>Nova rodada</Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** PIN input 5 chars: A-Z 0-9 */
+function PinCodeInput({ value, onChange, length = 5, disabled = false }) {
+  const refs = React.useRef([]);
+
+  const chars = React.useMemo(() => {
+    const v = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, length);
+    return Array.from({ length }, (_, i) => v[i] || "");
+  }, [value, length]);
+
+  function setAt(i, ch) {
+    const next = chars.slice();
+    next[i] = ch;
+    const joined = next.join("").slice(0, length);
+    onChange(joined);
+  }
+
+  function focus(i) {
+    const el = refs.current[i];
+    if (el) el.focus();
+  }
+
+  function handleKeyDown(e, i) {
+    if (disabled) return;
+
+    const k = e.key;
+
+    if (k === "Backspace") {
+      e.preventDefault();
+      if (chars[i]) {
+        setAt(i, "");
+      } else {
+        const prev = Math.max(0, i - 1);
+        setAt(prev, "");
+        focus(prev);
+      }
+      return;
+    }
+
+    if (k === "ArrowLeft") {
+      e.preventDefault();
+      focus(Math.max(0, i - 1));
+      return;
+    }
+    if (k === "ArrowRight") {
+      e.preventDefault();
+      focus(Math.min(length - 1, i + 1));
+      return;
+    }
+
+    if (k === "Enter") return;
+
+    if (/^[a-zA-Z0-9]$/.test(k)) {
+      e.preventDefault();
+      const ch = k.toUpperCase();
+      setAt(i, ch);
+      focus(Math.min(length - 1, i + 1));
+    }
+  }
+
+  function handlePaste(e, i) {
+    if (disabled) return;
+    e.preventDefault();
+
+    const text = (e.clipboardData?.getData("text") || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, length);
+
+    if (!text) return;
+
+    const next = chars.slice();
+    let p = i;
+    for (const ch of text) {
+      if (p >= length) break;
+      next[p] = ch;
+      p++;
+    }
+    onChange(next.join("").slice(0, length));
+    focus(Math.min(length - 1, p));
+  }
+
+  return (
+    <div className="pin-wrap" aria-label="Código da sala">
+      {chars.map((c, i) => (
+        <input
+          key={i}
+          ref={(el) => (refs.current[i] = el)}
+          value={c}
+          disabled={disabled}
+          inputMode="text"
+          autoComplete="one-time-code"
+          maxLength={1}
+          onChange={() => {}}
+          onKeyDown={(e) => handleKeyDown(e, i)}
+          onPaste={(e) => handlePaste(e, i)}
+          onFocus={(e) => e.currentTarget.select()}
+          className="pin-box"
+        />
+      ))}
     </div>
   );
 }
@@ -304,7 +401,6 @@ export default function App() {
     return () => clearInterval(t);
   }, [state]);
 
-  // Toast: lastTrick
   useEffect(() => {
     const lt = state?.lastTrick;
     if (!lt?.at) return;
@@ -402,13 +498,10 @@ export default function App() {
     socket.emit("restart_game", { code: state.code }, (res) => {
       setLoading(false);
       if (!res?.ok) return alert(res?.err || "Não consegui reiniciar.");
-      // state vai vir via broadcast
     });
   }
 
-  // Mesa: mapeamento visual por seat
   const pos = useMemo(() => {
-    // layout: bottom = seat do usuário, top = parceiro (seat+2), left/right = restantes
     if (seat == null) return null;
     const bottom = seat;
     const top = (seat + 2) % 4;
@@ -456,20 +549,9 @@ export default function App() {
           ✅ Vaza: <span style={{ color: UI.accent }}>Seat {(toast?.winnerSeat ?? 0) + 1}</span> • Time{" "}
           <span style={{ color: UI.good }}>{(toast?.winnerTeam ?? 0) + 1}</span> • +{toast?.points ?? 0} pts
         </div>
-        <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {(toast?.cards || []).slice(0, 4).map((c, i) => (
-            <Card key={i} card={c} compact disabled trumpSuit={trumpSuit} trumpCard={trumpCard} showBadges={false} />
-          ))}
-        </div>
       </Toast>
 
-      <EndModal
-        show={phase === "ended"}
-        title={endTitle}
-        subtitle={endSubtitle}
-        onRestart={restartGame}
-        onClose={() => {}}
-      />
+      <EndModal show={phase === "ended"} title={endTitle} subtitle={endSubtitle} onRestart={restartGame} />
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -483,7 +565,7 @@ export default function App() {
             {conn === "online" ? "● Online" : conn === "connecting" ? "● Conectando" : "● Offline"}
           </Pill>
           {inRoom && (
-            <Button variant="danger" onClick={leaveRoom} disabled={loading}>
+            <Button variant="danger" onClick={leaveRoom} disabled={loading} style={{ width: "auto" }}>
               <Icon name="exit" />
               Sair
             </Button>
@@ -495,32 +577,28 @@ export default function App() {
         {!inRoom ? (
           <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "start" }}>
             <Panel title="Entrar no jogo" right={<Pill tone="accent">61+ pontos</Pill>}>
-              <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+              <div style={{ display: "grid", gap: 12, maxWidth: 560 }}>
                 <div style={{ display: "grid", gap: 6 }}>
                   <div style={{ fontSize: 12, color: UI.muted }}>Seu nome</div>
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
 
-                {/* ✅ GRID definitivo: não sobrepõe nunca */}
-                <div className="start-actions">
-                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ minWidth: 140 }}>
+                {/* ✅ FIX DEFINITIVO: grid fixa (nunca sobrepõe) */}
+                <div className="start-actions-fixed">
+                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ width: "100%" }}>
                     <Icon name="plus" />
                     Criar sala
                   </Button>
 
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <Input
-                      placeholder="CÓDIGO"
-                      value={codeNormalized}
-                      onChange={(e) => setCodeInput(e.target.value)}
-                      style={{ textTransform: "uppercase", letterSpacing: 3, textAlign: "center" }}
-                    />
-                    <div style={{ fontSize: 11, color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn }}>
-                      {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código ok" : "Código inválido"}
+                  <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                    <PinCodeInput value={codeNormalized} onChange={(v) => setCodeInput(v)} disabled={conn !== "online"} />
+
+                    <div style={{ fontSize: 11, textAlign: "center", color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn }}>
+                      {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código válido" : "Código inválido"}
                     </div>
                   </div>
 
-                  <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid} style={{ minWidth: 110 }}>
+                  <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid} style={{ width: "100%" }}>
                     <Icon name="enter" />
                     Entrar
                   </Button>
@@ -531,20 +609,141 @@ export default function App() {
                   <Pill>Lobby inicia quando 4 estiverem prontos</Pill>
                 </div>
 
+                {/* ✅ CSS do grid + PIN metal/neon + rebites */}
                 <style>{`
-                  .start-actions{
+                  .start-actions-fixed{
                     display:grid;
-                    grid-template-columns: auto 140px auto;
-                    gap:10px;
-                    align-items:start;
+                    grid-template-columns: minmax(160px, 1fr) auto minmax(140px, 1fr);
+                    gap: 12px;
+                    align-items: start;
+                    width: 100%;
                   }
-                  @media (max-width: 720px){
-                    .start-actions{
+                  .start-actions-fixed > :nth-child(2){
+                    min-width: 0;
+                    justify-self: center;
+                  }
+                  @media (max-width: 820px){
+                    .start-actions-fixed{
                       grid-template-columns: 1fr 1fr;
                     }
-                    .start-actions > :nth-child(2){
+                    .start-actions-fixed > :nth-child(2){
                       grid-column: 1 / -1;
                     }
+                  }
+
+                  .pin-wrap{
+                    display:flex;
+                    gap:10px;
+                    justify-content:center;
+                    align-items:center;
+                    width:100%;
+                  }
+
+                  .pin-box{
+                    width: 46px;
+                    height: 56px;
+                    border-radius: 14px;
+
+                    background:
+                      radial-gradient(circle at 10px 10px,
+                        rgba(255,255,255,.70) 0 2px,
+                        rgba(0,0,0,.55) 2px 3px,
+                        rgba(255,255,255,.12) 3px 6px,
+                        rgba(0,0,0,0) 7px
+                      ),
+                      radial-gradient(circle at calc(100% - 10px) 10px,
+                        rgba(255,255,255,.70) 0 2px,
+                        rgba(0,0,0,.55) 2px 3px,
+                        rgba(255,255,255,.12) 3px 6px,
+                        rgba(0,0,0,0) 7px
+                      ),
+                      radial-gradient(circle at 10px calc(100% - 10px),
+                        rgba(255,255,255,.70) 0 2px,
+                        rgba(0,0,0,.55) 2px 3px,
+                        rgba(255,255,255,.12) 3px 6px,
+                        rgba(0,0,0,0) 7px
+                      ),
+                      radial-gradient(circle at calc(100% - 10px) calc(100% - 10px),
+                        rgba(255,255,255,.70) 0 2px,
+                        rgba(0,0,0,.55) 2px 3px,
+                        rgba(255,255,255,.12) 3px 6px,
+                        rgba(0,0,0,0) 7px
+                      ),
+
+                      linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 45%, rgba(0,0,0,.25)),
+
+                      repeating-linear-gradient(
+                        90deg,
+                        rgba(255,255,255,.06) 0px,
+                        rgba(255,255,255,.06) 1px,
+                        rgba(255,255,255,.00) 2px,
+                        rgba(255,255,255,.00) 8px
+                      ),
+
+                      linear-gradient(180deg, rgba(20,22,26,.92), rgba(10,11,13,.92));
+
+                    border: 1px solid rgba(255,255,255,.12);
+                    color: ${UI.text};
+
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: 1100;
+                    letter-spacing: 1px;
+
+                    outline: none;
+
+                    box-shadow:
+                      0 18px 50px rgba(0,0,0,.40),
+                      inset 0 1px 0 rgba(255,255,255,.10),
+                      inset 0 -10px 18px rgba(0,0,0,.35);
+
+                    position: relative;
+                    transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
+                    caret-color: transparent;
+                  }
+
+                  .pin-box::after{
+                    content:"";
+                    position:absolute;
+                    inset: 6px;
+                    border-radius: 10px;
+                    pointer-events:none;
+                    border: 1px solid rgba(255,255,255,.08);
+                    box-shadow:
+                      inset 0 1px 0 rgba(255,255,255,.08),
+                      inset 0 -8px 14px rgba(0,0,0,.25);
+                    opacity:.9;
+                  }
+
+                  .pin-box:focus{
+                    border-color: rgba(110,231,255,.55);
+                    box-shadow:
+                      0 0 0 4px rgba(110,231,255,.12),
+                      0 0 18px rgba(110,231,255,.20),
+                      0 18px 55px rgba(0,0,0,.45),
+                      inset 0 1px 0 rgba(255,255,255,.12),
+                      inset 0 -10px 18px rgba(0,0,0,.38);
+                    transform: translateY(-1px);
+                    filter: brightness(1.06);
+                  }
+
+                  /* ✅ neon “always-on” quando preenchido (placeholder-shown não serve aqui) */
+                  .pin-box:not([value=""]){
+                    box-shadow:
+                      0 18px 50px rgba(0,0,0,.40),
+                      inset 0 1px 0 rgba(255,255,255,.10),
+                      inset 0 -10px 18px rgba(0,0,0,.35),
+                      0 0 14px rgba(110,231,255,.10);
+                  }
+
+                  .pin-box:disabled{
+                    opacity:.55;
+                    filter: grayscale(.2);
+                  }
+
+                  @media (max-width: 420px){
+                    .pin-box{ width: 42px; height: 54px; }
+                    .pin-wrap{ gap:8px; }
                   }
                 `}</style>
               </div>
@@ -566,6 +765,9 @@ export default function App() {
           </div>
         ) : (
           <div style={{ display: "grid", gap: 14 }}>
+            {/* =========================
+                IN-ROOM (mantido completo)
+               ========================= */}
             <Panel
               title="Sala"
               right={
@@ -595,17 +797,19 @@ export default function App() {
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Button variant="ghost" onClick={copyRoomCode}>
+                    <Button variant="ghost" onClick={copyRoomCode} style={{ width: "auto" }}>
                       <Icon name="copy" />
                       {copied ? "Copiado!" : "Copiar"}
                     </Button>
                     {phase === "lobby" && (
-                      <Button onClick={() => socket.emit("set_ready", { code: state.code, ready: !myReady })}>
+                      <Button onClick={() => socket.emit("set_ready", { code: state.code, ready: !myReady })} style={{ width: "auto" }}>
                         {myReady ? "Cancelar pronto" : "Pronto"}
                       </Button>
                     )}
                     {phase === "ended" && (
-                      <Button onClick={restartGame}>Nova rodada</Button>
+                      <Button onClick={restartGame} style={{ width: "auto" }}>
+                        Nova rodada
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -639,7 +843,6 @@ export default function App() {
                     overflow: "hidden",
                   }}
                 >
-                  {/* “madeira/barracão” sutil */}
                   <div
                     style={{
                       position: "absolute",
@@ -651,7 +854,7 @@ export default function App() {
                     }}
                   />
 
-                  {/* Top player */}
+                  {/* Top */}
                   {pos && (
                     <div style={{ position: "absolute", top: 10, left: 0, right: 0, display: "grid", placeItems: "center", gap: 6 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
@@ -661,7 +864,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Left player */}
+                  {/* Left */}
                   {pos && (
                     <div style={{ position: "absolute", top: 120, left: 10, display: "grid", placeItems: "center", gap: 6 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(-90deg)" }}>
@@ -671,7 +874,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Right player */}
+                  {/* Right */}
                   {pos && (
                     <div style={{ position: "absolute", top: 120, right: 10, display: "grid", placeItems: "center", gap: 6 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(90deg)" }}>
@@ -681,7 +884,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Center trick */}
+                  {/* Center */}
                   <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
                     <div style={{ display: "grid", gap: 10, placeItems: "center" }}>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
@@ -700,7 +903,9 @@ export default function App() {
                         <DeckStack count={state.deckCount ?? 0} compact />
 
                         <div style={{ display: "grid", gap: 8 }}>
-                          <Pill tone="warn">Bisca: <b style={{ color: UI.text }}>A</b> e <b style={{ color: UI.text }}>7</b> (não-trunfo)</Pill>
+                          <Pill tone="warn">
+                            Bisca: <b style={{ color: UI.text }}>A</b> e <b style={{ color: UI.text }}>7</b> (não-trunfo)
+                          </Pill>
                           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                             <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>Carta virada:</div>
                             {state.faceUp ? (
@@ -714,7 +919,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Bottom player (YOU) */}
+                  {/* Bottom (YOU) */}
                   {pos && (
                     <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, display: "grid", placeItems: "center", gap: 8 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
@@ -771,9 +976,7 @@ export default function App() {
                           </div>
                           <div style={{ fontSize: 12, color: UI.muted }}>{n || "—"}</div>
                         </div>
-                        <div>
-                          {!occupied ? <Pill>Vazio</Pill> : ready ? <Pill tone="good">Pronto</Pill> : <Pill tone="warn">Aguardando</Pill>}
-                        </div>
+                        <div>{!occupied ? <Pill>Vazio</Pill> : ready ? <Pill tone="good">Pronto</Pill> : <Pill tone="warn">Aguardando</Pill>}</div>
                       </div>
                     );
                   })}
@@ -792,8 +995,7 @@ export default function App() {
                 >
                   {(state.chat || []).map((m, i) => (
                     <div key={i} style={{ marginBottom: 8, lineHeight: 1.25 }}>
-                      <span style={{ fontWeight: 1000 }}>{m.name}:</span>{" "}
-                      <span style={{ color: UI.text }}>{m.msg}</span>
+                      <span style={{ fontWeight: 1000 }}>{m.name}:</span> <span style={{ color: UI.text }}>{m.msg}</span>
                     </div>
                   ))}
                   {(!state.chat || state.chat.length === 0) && <div style={{ color: UI.muted }}>Sem mensagens ainda…</div>}
@@ -810,6 +1012,7 @@ export default function App() {
                       });
                       setChatMsg("");
                     }}
+                    style={{ width: "auto" }}
                   >
                     Enviar
                   </Button>
@@ -817,7 +1020,7 @@ export default function App() {
 
                 <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {["Tem bisca aí?", "Confia em mim…", "Obrigado pela bisca!", "É minha!", "Que azar!"].map((t) => (
-                    <Button key={t} variant="ghost" onClick={() => socket.emit("chat", { code: state.code, msg: t })}>
+                    <Button key={t} variant="ghost" onClick={() => socket.emit("chat", { code: state.code, msg: t })} style={{ width: "auto" }}>
                       {t}
                     </Button>
                   ))}
