@@ -25,8 +25,12 @@ function mkCode() {
   return code;
 }
 
+function normCode(code) {
+  return String(code || "").trim().toUpperCase();
+}
+
 function getRoom(code) {
-  const r = rooms.get(code);
+  const r = rooms.get(normCode(code));
   if (!r) throw new Error("Sala não existe");
   return r;
 }
@@ -41,6 +45,10 @@ function countPlayers(r) {
 
 function deckCount(r) {
   return (r.deck?.length || 0) + (r.faceUp ? 1 : 0);
+}
+
+function handCounts(r) {
+  return r.hands.map((h) => (h?.length || 0));
 }
 
 function publicState(r) {
@@ -63,6 +71,9 @@ function publicState(r) {
     tricksPlayed: r.tricksPlayed,
 
     deckCount: deckCount(r),
+    handCounts: handCounts(r),
+
+    lastTrick: r.lastTrick || null,
 
     chat: r.chat.slice(-25),
   };
@@ -84,7 +95,7 @@ function clearTurnDeadline(r) {
 
 /** Compra do "monte":
  * - Primeiro compra do r.deck
- * - Quando acabar, a faceUp (carta virada) vira a "última carta do monte" e pode ser comprada
+ * - Quando acabar, a faceUp vira a "última carta do monte" e pode ser comprada
  */
 function drawFromStock(r) {
   if (r.deck.length > 0) return r.deck.shift();
@@ -99,7 +110,6 @@ function drawFromStock(r) {
 /** Após fechar uma vaza: cada jogador compra 1 carta, começando pelo winnerSeat */
 function dealAfterTrick(r, winnerSeat) {
   if (deckCount(r) <= 0) return;
-
   let seat = winnerSeat;
   for (let i = 0; i < 4; i++) {
     const c = drawFromStock(r);
@@ -115,19 +125,37 @@ function allHandsEmpty(r) {
 
 function scoreTrick(cards, isLastTrick = false) {
   const pts = cards.reduce((sum, c) => sum + cardPoints(c), 0);
-  // se você quiser bônus de última vaza, altere aqui (ex: +10)
   return pts + (isLastTrick ? 0 : 0);
+}
+
+function resetToLobbyKeepPlayers(r) {
+  r.ready = [false, false, false, false];
+  r.phase = "lobby";
+
+  r.deck = [];
+  r.faceUp = null;
+  r.hands = [[], [], [], []];
+  r.trumpSuit = null;
+
+  r.leaderSeat = 0;
+  r.turnSeat = 0;
+  r.trick = [];
+  r.tricksPlayed = 0;
+  r.teamScore = [0, 0];
+  r.lastTrick = null;
+
+  clearTurnDeadline(r);
 }
 
 function startGame(r) {
   r.phase = "playing";
   const full = shuffle(makeDeck());
 
-  // carta virada (trunfo é uma carta real)
+  // carta virada (trunfo é carta real)
   r.faceUp = full.pop();
   r.trumpSuit = r.faceUp?.s || null;
 
-  // resto vira "monte"
+  // resto vira monte
   r.deck = full;
 
   // mãos iniciais: 3 cartas
@@ -139,6 +167,7 @@ function startGame(r) {
   r.trick = [];
   r.tricksPlayed = 0;
   r.teamScore = [0, 0];
+  r.lastTrick = null;
 
   r.leaderSeat = 0;
   r.turnSeat = r.leaderSeat;
@@ -174,7 +203,6 @@ io.on("connection", (socket) => {
       deck: [],
       faceUp: null,
       hands: [[], [], [], []],
-
       trumpSuit: null,
 
       leaderSeat: 0,
@@ -184,6 +212,7 @@ io.on("connection", (socket) => {
       trick: [],
       tricksPlayed: 0,
       teamScore: [0, 0],
+      lastTrick: null,
 
       chat: [],
 
@@ -203,7 +232,7 @@ io.on("connection", (socket) => {
 
   socket.on("join_room", ({ code, name }, cb) => {
     try {
-      const r = getRoom(String(code || "").toUpperCase());
+      const r = getRoom(code);
       const seat = r.seats.findIndex((s) => s === null);
       if (seat === -1) return cb?.({ ok: false, err: "Sala cheia" });
 
@@ -222,7 +251,7 @@ io.on("connection", (socket) => {
 
   socket.on("leave_room", ({ code }, cb) => {
     try {
-      const r = getRoom(String(code || "").toUpperCase());
+      const r = getRoom(code);
       const seat = seatOf(r, socket.id);
       if (seat >= 0) {
         r.seats[seat] = null;
@@ -231,26 +260,32 @@ io.on("connection", (socket) => {
 
         socket.leave(r.code);
 
-        // volta pro lobby se alguém sair durante o jogo
-        r.phase = "lobby";
-        r.trick = [];
-        r.teamScore = [0, 0];
-        r.tricksPlayed = 0;
-        r.deck = [];
-        r.faceUp = null;
-        r.hands = [[], [], [], []];
-        r.trumpSuit = null;
-        r.leaderSeat = 0;
-        r.turnSeat = 0;
-        clearTurnDeadline(r);
+        // volta pro lobby se alguém sai
+        resetToLobbyKeepPlayers(r);
 
         io.to(r.code).emit("state", publicState(r));
       }
 
-      // se ficou vazio, marca pra auto-fechar (ver interval)
       if (countPlayers(r) === 0) r._emptySince = Date.now();
+      cb?.({ ok: true });
+    } catch (e) {
+      cb?.({ ok: false, err: e.message });
+    }
+  });
+
+  // ✅ NOVA RODADA sem criar nova sala
+  socket.on("restart_game", ({ code }, cb) => {
+    try {
+      const r = getRoom(code);
+      const seat = seatOf(r, socket.id);
+      if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
+
+      resetToLobbyKeepPlayers(r);
+      r.chat.push({ name: "Sistema", msg: "🔁 Nova rodada pronta. Marquem 'Pronto' novamente.", ts: Date.now() });
 
       cb?.({ ok: true });
+      io.to(r.code).emit("state", publicState(r));
+      sendHands(r);
     } catch (e) {
       cb?.({ ok: false, err: e.message });
     }
@@ -258,7 +293,7 @@ io.on("connection", (socket) => {
 
   socket.on("set_ready", ({ code, ready }, cb) => {
     try {
-      const r = getRoom(String(code || "").toUpperCase());
+      const r = getRoom(code);
       const seat = seatOf(r, socket.id);
       if (seat < 0) return cb?.({ ok: false, err: "Você não está na sala" });
 
@@ -282,22 +317,19 @@ io.on("connection", (socket) => {
 
   socket.on("play_card", ({ code, cardId }, cb) => {
     try {
-      const r = getRoom(String(code || "").toUpperCase());
+      const r = getRoom(code);
       const seat = seatOf(r, socket.id);
       const check = canPlay(r, seat, cardId);
       if (!check.ok) return cb?.({ ok: false, err: check.why });
 
-      // remove da mão
       const idx = r.hands[seat].findIndex((c) => c.id === cardId);
       const [card] = r.hands[seat].splice(idx, 1);
 
       r.trick.push({ seat, card });
 
-      // próximo turno
       r.turnSeat = nextSeat(r.turnSeat);
       setTurnDeadline(r);
 
-      // fechou a vaza?
       if (r.trick.length === 4) {
         const winner = trickWinner(r.trick, r.trumpSuit);
         r.leaderSeat = winner;
@@ -306,18 +338,23 @@ io.on("connection", (socket) => {
         r.tricksPlayed += 1;
 
         const wonCards = r.trick.map((t) => t.card);
-
         const pts = scoreTrick(wonCards, false);
         r.teamScore[teamOfSeat(winner)] += pts;
 
+        // ✅ lastTrick para UI (toast/efeito)
+        r.lastTrick = {
+          at: Date.now(),
+          winnerSeat: winner,
+          winnerTeam: teamOfSeat(winner),
+          points: pts,
+          cards: wonCards,
+        };
+
         r.trick = [];
 
-        // ✅ COMPRA AUTOMÁTICA DO MONTE
+        // ✅ COMPRA AUTOMÁTICA
         dealAfterTrick(r, winner);
 
-        // fim de partida:
-        // - alguém fez 61+
-        // - ou acabou o monte + carta virada e as mãos ficaram vazias
         if (r.teamScore[0] >= 61 || r.teamScore[1] >= 61) {
           r.phase = "ended";
           clearTurnDeadline(r);
@@ -339,7 +376,7 @@ io.on("connection", (socket) => {
 
   socket.on("chat", ({ code, msg }, cb) => {
     try {
-      const r = getRoom(String(code || "").toUpperCase());
+      const r = getRoom(code);
       const seat = seatOf(r, socket.id);
       if (seat < 0) return cb?.({ ok: false, err: "Fora da sala" });
 
@@ -362,21 +399,9 @@ io.on("connection", (socket) => {
         r.names[seat] = "";
         r.ready[seat] = false;
 
-        // volta pro lobby se alguém sai
-        r.phase = "lobby";
-        r.trick = [];
-        r.teamScore = [0, 0];
-        r.tricksPlayed = 0;
-        r.deck = [];
-        r.faceUp = null;
-        r.hands = [[], [], [], []];
-        r.trumpSuit = null;
-        r.leaderSeat = 0;
-        r.turnSeat = 0;
-        clearTurnDeadline(r);
+        resetToLobbyKeepPlayers(r);
 
         io.to(r.code).emit("state", publicState(r));
-
         if (countPlayers(r) === 0) r._emptySince = Date.now();
       }
     }
@@ -391,15 +416,13 @@ setInterval(() => {
     // auto-fechar sala vazia após 60s
     if (countPlayers(r) === 0) {
       if (!r._emptySince) r._emptySince = now;
-      if (now - r._emptySince > 60_000) {
-        cleanupRoomIfEmpty(r);
-      }
+      if (now - r._emptySince > 60_000) cleanupRoomIfEmpty(r);
       continue;
     } else {
       r._emptySince = null;
     }
 
-    // auto-play se tempo expirar
+    // auto-play
     if (r.phase !== "playing") continue;
     if (!r.turnDeadline) continue;
     if (now < r.turnDeadline) continue;
@@ -408,8 +431,7 @@ setInterval(() => {
     const seat = r.turnSeat;
     const sid = r.seats[seat];
     if (!sid) {
-      r.phase = "lobby";
-      clearTurnDeadline(r);
+      resetToLobbyKeepPlayers(r);
       io.to(r.code).emit("state", publicState(r));
       continue;
     }
@@ -445,9 +467,16 @@ setInterval(() => {
         const pts = scoreTrick(wonCards, false);
         r.teamScore[teamOfSeat(winner)] += pts;
 
+        r.lastTrick = {
+          at: Date.now(),
+          winnerSeat: winner,
+          winnerTeam: teamOfSeat(winner),
+          points: pts,
+          cards: wonCards,
+        };
+
         r.trick = [];
 
-        // ✅ compra automática
         dealAfterTrick(r, winner);
 
         if (r.teamScore[0] >= 61 || r.teamScore[1] >= 61) {
