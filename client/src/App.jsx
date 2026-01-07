@@ -572,21 +572,24 @@ export default function App() {
         <div
   	style={{
     		position: "absolute",
-    		top: 18,
+    		top: 34,
     		left: "50%",
     		transform: "translateX(-50%)",
-    		zIndex: 2,
+    		zIndex: 3,
     		pointerEvents: "none",
   		}}
 	>
   	<img
-    		src="/logo-sem-fundo.png"
-    		alt="Serra Online"
-    	style={{
-     	 height: 82,
-      	opacity: 0.95,
-      	filter: "drop-shadow(0 12px 28px rgba(0,0,0,.65))",
-    	}}
+    	  src="/logo-sem-fundo.png"
+    	  alt="Serra Online"
+    	  style={{
+     	   height: 140,
+      	   opacity: 0.98,
+      	   filter: `
+        	drop-shadow(0 18px 38px rgba(0,0,0,.65))
+        	drop-shadow(0 2px 6px rgba(255,215,120,.25))
+      	     `,
+    	   }}
  	 />
 	</div>
 
@@ -604,7 +607,7 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 140 }}>
           {!inRoom ? (
             <div style={{ display: "grid", gridTemplateColumns: "1.25fr .75fr", gap: 14, alignItems: "start" }}>
               <Panel title="Entrar no jogo" right={<Pill tone="accent">61+ pontos</Pill>}>
