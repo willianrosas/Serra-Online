@@ -238,7 +238,9 @@ function EndModal({ show, title, subtitle, onRestart }) {
         <div style={{ fontSize: 18, fontWeight: 1100 }}>{title}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
         <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <Button onClick={onRestart} style={{ width: "auto" }}>Nova rodada</Button>
+          <Button onClick={onRestart} style={{ width: "auto" }}>
+            Nova rodada
+          </Button>
         </div>
       </div>
     </div>
@@ -257,8 +259,7 @@ function PinCodeInput({ value, onChange, length = 5, disabled = false }) {
   function setAt(i, ch) {
     const next = chars.slice();
     next[i] = ch;
-    const joined = next.join("").slice(0, length);
-    onChange(joined);
+    onChange(next.join("").slice(0, length));
   }
 
   function focus(i) {
@@ -268,7 +269,6 @@ function PinCodeInput({ value, onChange, length = 5, disabled = false }) {
 
   function handleKeyDown(e, i) {
     if (disabled) return;
-
     const k = e.key;
 
     if (k === "Backspace") {
@@ -298,8 +298,7 @@ function PinCodeInput({ value, onChange, length = 5, disabled = false }) {
 
     if (/^[a-zA-Z0-9]$/.test(k)) {
       e.preventDefault();
-      const ch = k.toUpperCase();
-      setAt(i, ch);
+      setAt(i, k.toUpperCase());
       focus(Math.min(length - 1, i + 1));
     }
   }
@@ -583,25 +582,28 @@ export default function App() {
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
 
-                {/* ✅ FIX DEFINITIVO: grid fixa (nunca sobrepõe) */}
-                <div className="start-actions-fixed">
-                  <Button onClick={createRoom} disabled={conn !== "online"} style={{ width: "100%" }}>
-                    <Icon name="plus" />
-                    Criar sala
-                  </Button>
+                {/* ✅ Centralizado + espaçamento igual */}
+                <div className="start-actions-center">
+                  <div className="action-item">
+                    <Button onClick={createRoom} disabled={conn !== "online"}>
+                      <Icon name="plus" />
+                      Criar sala
+                    </Button>
+                  </div>
 
-                  <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                  <div className="action-item pin-holder">
                     <PinCodeInput value={codeNormalized} onChange={(v) => setCodeInput(v)} disabled={conn !== "online"} />
-
-                    <div style={{ fontSize: 11, textAlign: "center", color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn }}>
+                    <div className="pin-hint" style={{ color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn }}>
                       {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código válido" : "Código inválido"}
                     </div>
                   </div>
 
-                  <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid} style={{ width: "100%" }}>
-                    <Icon name="enter" />
-                    Entrar
-                  </Button>
+                  <div className="action-item">
+                    <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid}>
+                      <Icon name="enter" />
+                      Entrar
+                    </Button>
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -609,26 +611,38 @@ export default function App() {
                   <Pill>Lobby inicia quando 4 estiverem prontos</Pill>
                 </div>
 
-                {/* ✅ CSS do grid + PIN metal/neon + rebites */}
+                {/* ✅ CSS: centralização + pin metal/neon/rebites */}
                 <style>{`
-                  .start-actions-fixed{
-                    display:grid;
-                    grid-template-columns: minmax(160px, 1fr) auto minmax(140px, 1fr);
-                    gap: 12px;
-                    align-items: start;
-                    width: 100%;
+                  .start-actions-center{
+                    display:flex;
+                    justify-content:center;
+                    align-items:flex-start;
+                    gap:18px;
+                    width:100%;
                   }
-                  .start-actions-fixed > :nth-child(2){
-                    min-width: 0;
-                    justify-self: center;
+                  .action-item{
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    min-width:140px;
                   }
-                  @media (max-width: 820px){
-                    .start-actions-fixed{
-                      grid-template-columns: 1fr 1fr;
-                    }
-                    .start-actions-fixed > :nth-child(2){
-                      grid-column: 1 / -1;
-                    }
+                  .action-item button{
+                    width:100%;
+                    max-width:160px;
+                  }
+                  .pin-holder{
+                    min-width:300px;
+                  }
+                  .pin-hint{
+                    margin-top:6px;
+                    font-size:11px;
+                    text-align:center;
+                  }
+
+                  @media (max-width: 720px){
+                    .start-actions-center{ flex-direction:column; gap:14px; }
+                    .pin-holder{ min-width:unset; }
+                    .action-item button{ max-width:520px; }
                   }
 
                   .pin-wrap{
@@ -639,10 +653,11 @@ export default function App() {
                     width:100%;
                   }
 
+                  /* “Metal escovado + neon” + rebites */
                   .pin-box{
-                    width: 46px;
-                    height: 56px;
-                    border-radius: 14px;
+                    width:46px;
+                    height:56px;
+                    border-radius:14px;
 
                     background:
                       radial-gradient(circle at 10px 10px,
@@ -669,9 +684,7 @@ export default function App() {
                         rgba(255,255,255,.12) 3px 6px,
                         rgba(0,0,0,0) 7px
                       ),
-
                       linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 45%, rgba(0,0,0,.25)),
-
                       repeating-linear-gradient(
                         90deg,
                         rgba(255,255,255,.06) 0px,
@@ -679,36 +692,33 @@ export default function App() {
                         rgba(255,255,255,.00) 2px,
                         rgba(255,255,255,.00) 8px
                       ),
-
                       linear-gradient(180deg, rgba(20,22,26,.92), rgba(10,11,13,.92));
 
-                    border: 1px solid rgba(255,255,255,.12);
-                    color: ${UI.text};
-
-                    text-align: center;
-                    font-size: 18px;
-                    font-weight: 1100;
-                    letter-spacing: 1px;
-
-                    outline: none;
+                    border:1px solid rgba(255,255,255,.12);
+                    color:${UI.text};
+                    text-align:center;
+                    font-size:18px;
+                    font-weight:1100;
+                    letter-spacing:1px;
+                    outline:none;
 
                     box-shadow:
                       0 18px 50px rgba(0,0,0,.40),
                       inset 0 1px 0 rgba(255,255,255,.10),
                       inset 0 -10px 18px rgba(0,0,0,.35);
 
-                    position: relative;
-                    transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
-                    caret-color: transparent;
+                    position:relative;
+                    transition:transform .08s ease, border-color .15s ease, box-shadow .15s ease, filter .15s ease;
+                    caret-color:transparent;
                   }
 
                   .pin-box::after{
                     content:"";
                     position:absolute;
-                    inset: 6px;
-                    border-radius: 10px;
+                    inset:6px;
+                    border-radius:10px;
                     pointer-events:none;
-                    border: 1px solid rgba(255,255,255,.08);
+                    border:1px solid rgba(255,255,255,.08);
                     box-shadow:
                       inset 0 1px 0 rgba(255,255,255,.08),
                       inset 0 -8px 14px rgba(0,0,0,.25);
@@ -727,7 +737,7 @@ export default function App() {
                     filter: brightness(1.06);
                   }
 
-                  /* ✅ neon “always-on” quando preenchido (placeholder-shown não serve aqui) */
+                  /* neon “always-on” quando preenchido */
                   .pin-box:not([value=""]){
                     box-shadow:
                       0 18px 50px rgba(0,0,0,.40),
@@ -742,7 +752,7 @@ export default function App() {
                   }
 
                   @media (max-width: 420px){
-                    .pin-box{ width: 42px; height: 54px; }
+                    .pin-box{ width:42px; height:54px; }
                     .pin-wrap{ gap:8px; }
                   }
                 `}</style>
@@ -824,7 +834,9 @@ export default function App() {
                 title="Mesa"
                 right={
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <Pill>líder: <b style={{ color: UI.text }}>Seat {(state.leaderSeat ?? 0) + 1}</b></Pill>
+                    <Pill>
+                      líder: <b style={{ color: UI.text }}>Seat {(state.leaderSeat ?? 0) + 1}</b>
+                    </Pill>
                     <Pill tone={isMyTurn ? "good" : "neutral"}>
                       turno: <b style={{ color: UI.text }}>Seat {(state.turnSeat ?? 0) + 1}</b> {isMyTurn ? "(você)" : ""}
                     </Pill>
@@ -847,8 +859,7 @@ export default function App() {
                     style={{
                       position: "absolute",
                       inset: 0,
-                      background:
-                        "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 10px)",
+                      background: "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 10px)",
                       opacity: 0.6,
                       pointerEvents: "none",
                     }}
@@ -867,9 +878,7 @@ export default function App() {
                   {/* Left */}
                   {pos && (
                     <div style={{ position: "absolute", top: 120, left: 10, display: "grid", placeItems: "center", gap: 6 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(-90deg)" }}>
-                        Seat {pos.left + 1}
-                      </div>
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(-90deg)" }}>Seat {pos.left + 1}</div>
                       <FaceDownFan count={state.handCounts?.[pos.left] ?? 0} />
                     </div>
                   )}
@@ -877,9 +886,7 @@ export default function App() {
                   {/* Right */}
                   {pos && (
                     <div style={{ position: "absolute", top: 120, right: 10, display: "grid", placeItems: "center", gap: 6 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(90deg)" }}>
-                        Seat {pos.right + 1}
-                      </div>
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(90deg)" }}>Seat {pos.right + 1}</div>
                       <FaceDownFan count={state.handCounts?.[pos.right] ?? 0} />
                     </div>
                   )}
@@ -901,7 +908,6 @@ export default function App() {
 
                       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
                         <DeckStack count={state.deckCount ?? 0} compact />
-
                         <div style={{ display: "grid", gap: 8 }}>
                           <Pill tone="warn">
                             Bisca: <b style={{ color: UI.text }}>A</b> e <b style={{ color: UI.text }}>7</b> (não-trunfo)
