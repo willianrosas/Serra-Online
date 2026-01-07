@@ -1,26 +1,112 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { socket } from "./net.js";
+import { Card, DeckStack } from "./ui/cards.jsx";
 
-function Button({ children, ...props }) {
+const UI = {
+  bg: "#070708",
+  panel: "rgba(15,16,18,.92)",
+  border: "rgba(255,255,255,.10)",
+  text: "rgba(245,246,248,.95)",
+  muted: "rgba(245,246,248,.70)",
+  accent: "rgba(110,231,255,.95)",
+  good: "rgba(80,250,123,.95)",
+  warn: "rgba(255,209,102,.95)",
+  bad: "rgba(255,92,122,.95)",
+};
+
+function Button({ variant = "primary", disabled, children, style, ...props }) {
+  const base = {
+    padding: "11px 12px",
+    borderRadius: 12,
+    border: `1px solid ${UI.border}`,
+    background: "rgba(255,255,255,.04)",
+    color: UI.text,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+    fontWeight: 900,
+    letterSpacing: 0.2,
+    transition: "transform .06s ease, opacity .2s ease",
+  };
+  const variants = {
+    primary: {
+      background: "linear-gradient(180deg, rgba(110,231,255,.18), rgba(110,231,255,.06))",
+      border: "1px solid rgba(110,231,255,.35)",
+    },
+    ghost: {
+      background: "transparent",
+      border: `1px solid ${UI.border}`,
+    },
+    danger: {
+      background: "linear-gradient(180deg, rgba(255,92,122,.18), rgba(255,92,122,.06))",
+      border: "1px solid rgba(255,92,122,.35)",
+    },
+  };
   return (
     <button
       {...props}
-      style={{
-        padding: "10px 12px",
-        borderRadius: 10,
-        border: "1px solid #444",
-        background: "#111",
-        color: "#fff",
-        cursor: "pointer",
-        opacity: props.disabled ? 0.55 : 1
+      disabled={disabled}
+      style={{ ...base, ...(variants[variant] || {}), ...style }}
+      onMouseDown={(e) => {
+        if (disabled) return;
+        e.currentTarget.style.transform = "scale(0.98)";
       }}
+      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
     >
       {children}
     </button>
   );
 }
 
-function Pill({ children }) {
+function Input({ style, ...props }) {
+  return (
+    <input
+      {...props}
+      style={{
+        width: "100%",
+        padding: "12px 12px",
+        borderRadius: 12,
+        border: `1px solid ${UI.border}`,
+        background: "rgba(0,0,0,.25)",
+        color: UI.text,
+        outline: "none",
+        minWidth: 0,
+        ...style,
+      }}
+    />
+  );
+}
+
+function Panel({ title, right, children }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${UI.border}`,
+        borderRadius: 18,
+        background: UI.panel,
+        padding: 14,
+        boxShadow: "0 18px 60px rgba(0,0,0,.45)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+        <h2 style={{ margin: 0, fontSize: 16, letterSpacing: 0.3 }}>{title}</h2>
+        {right}
+      </div>
+      <div style={{ marginTop: 12 }}>{children}</div>
+    </div>
+  );
+}
+
+function Pill({ tone = "neutral", children }) {
+  const m = {
+    neutral: { b: UI.border, bg: "rgba(255,255,255,.04)", c: UI.muted },
+    accent: { b: "rgba(110,231,255,.35)", bg: "rgba(110,231,255,.10)", c: UI.accent },
+    good: { b: "rgba(80,250,123,.35)", bg: "rgba(80,250,123,.10)", c: UI.good },
+    warn: { b: "rgba(255,209,102,.35)", bg: "rgba(255,209,102,.10)", c: UI.warn },
+    bad: { b: "rgba(255,92,122,.35)", bg: "rgba(255,92,122,.10)", c: UI.bad },
+  }[tone];
+
   return (
     <span
       style={{
@@ -29,10 +115,13 @@ function Pill({ children }) {
         gap: 8,
         padding: "6px 10px",
         borderRadius: 999,
-        border: "1px solid #2a2a2a",
-        background: "#0f0f0f",
+        border: `1px solid ${m.b}`,
+        background: m.bg,
+        color: m.c,
         fontSize: 12,
-        opacity: 0.9
+        fontWeight: 900,
+        letterSpacing: 0.2,
+        whiteSpace: "nowrap",
       }}
     >
       {children}
@@ -40,11 +129,46 @@ function Pill({ children }) {
   );
 }
 
-function CardBox({ title, children }) {
+function LoadingOverlay({ show, text = "Carregando…" }) {
+  if (!show) return null;
   return (
-    <div style={{ border: "1px solid #333", borderRadius: 14, padding: 12 }}>
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
-      {children}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.68)",
+        display: "grid",
+        placeItems: "center",
+        zIndex: 999,
+      }}
+    >
+      <div
+        style={{
+          width: 420,
+          maxWidth: "92vw",
+          borderRadius: 18,
+          border: `1px solid ${UI.border}`,
+          background: UI.panel,
+          padding: 18,
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 1000, marginBottom: 8 }}>{text}</div>
+        <div style={{ color: UI.muted, fontSize: 12 }}>“No barracão, a gente embaralha o destino…”</div>
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "3px solid rgba(255,255,255,.12)",
+              borderTop: "3px solid rgba(110,231,255,.75)",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -52,17 +176,37 @@ function CardBox({ title, children }) {
 export default function App() {
   const [name, setName] = useState("Willian");
   const [codeInput, setCodeInput] = useState("");
+
   const [seat, setSeat] = useState(null);
   const [state, setState] = useState(null);
   const [hand, setHand] = useState([]);
+
   const [chatMsg, setChatMsg] = useState("");
+
+  const [conn, setConn] = useState(socket.connected ? "online" : "connecting"); // connecting|online|offline
+  const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const onConnect = () => setConn("online");
+    const onDisconnect = () => setConn("offline");
+    const onConnectError = () => setConn("offline");
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
+
     socket.on("state", setState);
     socket.on("hand", setHand);
+
+    // garante tentativa de conexão
+    if (!socket.connected) socket.connect();
+
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
       socket.off("state", setState);
       socket.off("hand", setHand);
     };
@@ -77,7 +221,6 @@ export default function App() {
         setTimeLeft(30);
         return;
       }
-
       const ms = Math.max(0, deadline - Date.now());
       setTimeLeft(Math.ceil(ms / 1000));
     }, 200);
@@ -87,397 +230,449 @@ export default function App() {
 
   const inRoom = !!state?.code;
   const phase = state?.phase || "lobby";
+  const trumpSuit = state?.trumpSuit || null;
+  const trumpCard = state?.trumpCard || state?.faceUp || null;
 
-  const myReady = useMemo(() => {
-    if (seat == null || !state) return false;
-    return state.ready?.[seat] ?? false;
-  }, [seat, state]);
+  const playersCount = useMemo(() => (state?.names ? state.names.filter(Boolean).length : 0), [state]);
+  const myReady = useMemo(() => (seat == null ? false : !!state?.ready?.[seat]), [seat, state]);
 
-  const playersCount = useMemo(() => {
-    if (!state?.names) return 0;
-    return state.names.filter(Boolean).length;
-  }, [state]);
-
-  const allIn = useMemo(() => {
-    if (!state?.names) return false;
-    return playersCount === 4;
-  }, [playersCount]);
-
-  const allReady = useMemo(() => {
-    if (!state?.ready) return false;
-    return state.ready.every(Boolean);
-  }, [state]);
-
-  const roomStatusText = useMemo(() => {
+  const roomStatus = useMemo(() => {
     if (!state) return "";
     if (phase === "playing") return "Partida em andamento.";
     if (phase === "ended") return "Partida encerrada.";
-
-    // lobby
     if (playersCount < 4) return `Aguardando jogadores (${playersCount}/4)…`;
-    if (playersCount === 4 && !allReady) return "Todos entraram. Aguardando todos ficarem prontos…";
-    if (playersCount === 4 && allReady) return "Iniciando partida…";
-    return "Aguardando…";
-  }, [state, phase, playersCount, allReady]);
+    const allReady = (state.ready || []).every(Boolean);
+    if (!allReady) return "Todos entraram. Aguardando todos ficarem prontos…";
+    return "Iniciando partida…";
+  }, [state, phase, playersCount]);
+
+  const isMyTurn = phase === "playing" && state?.turnSeat === seat;
 
   async function copyRoomCode() {
     try {
       await navigator.clipboard.writeText(state?.code || "");
       setCopied(true);
-      setTimeout(() => setCopied(false), 1000);
+      setTimeout(() => setCopied(false), 900);
     } catch {
       alert("Não consegui copiar. Copie manualmente o código.");
     }
   }
 
-  function leaveRoomLocal() {
-  const roomCode = state?.code;
-  if (!roomCode) return;
-
-  socket.emit("leave_room", { code: roomCode }, () => {
-    // independente do retorno, limpa a UI local
+  function resetLocal() {
     setState(null);
     setSeat(null);
     setHand([]);
     setChatMsg("");
     setCodeInput("");
     setCopied(false);
-  });
-}
+    setLoading(false);
+  }
 
+  function leaveRoom() {
+    const roomCode = state?.code;
+    if (!roomCode) return resetLocal();
+    setLoading(true);
 
-  const isMyTurn = phase === "playing" && state?.turnSeat === seat;
+    // Se o server não tiver leave_room ainda, o callback pode não vir.
+    // Mesmo assim, a gente se limpa localmente após 400ms.
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resetLocal();
+    };
+
+    socket.emit("leave_room", { code: roomCode }, () => {
+      setLoading(false);
+      finish();
+    });
+
+    setTimeout(() => {
+      setLoading(false);
+      finish();
+    }, 400);
+  }
+
+  function createRoom() {
+    const n = String(name || "").trim();
+    if (!n) return alert("Digite seu nome.");
+    if (conn !== "online") return alert("Servidor offline. Verifique backend/URL do socket.");
+    setLoading(true);
+
+    socket.emit("create_room", { name: n }, (res) => {
+      setLoading(false);
+      if (!res?.ok) return alert(res?.err || "Erro ao criar sala");
+      setSeat(res.seat);
+      setState(res.state);
+      setCodeInput(res.code);
+    });
+  }
+
+  function joinRoom() {
+    const n = String(name || "").trim();
+    const c = String(codeInput || "").trim().toUpperCase();
+    if (!n) return alert("Digite seu nome.");
+    if (!c) return alert("Digite o código da sala.");
+    if (conn !== "online") return alert("Servidor offline. Verifique backend/URL do socket.");
+    setLoading(true);
+
+    socket.emit("join_room", { code: c, name: n }, (res) => {
+      setLoading(false);
+      if (!res?.ok) return alert(res?.err || "Erro ao entrar");
+      setSeat(res.seat);
+      setState(res.state);
+    });
+  }
 
   return (
     <div
       style={{
-        fontFamily: "system-ui",
-        background: "#0b0b0b",
-        color: "#fff",
         minHeight: "100vh",
-        padding: 18
+        padding: 18,
+        background: `
+          radial-gradient(circle at 20% 10%, rgba(110,231,255,.12), transparent 45%),
+          radial-gradient(circle at 75% 25%, rgba(255,209,102,.10), transparent 48%),
+          radial-gradient(circle at 60% 95%, rgba(255,92,122,.10), transparent 55%),
+          ${UI.bg}
+        `,
+        color: UI.text,
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
       }}
     >
-      <h1 style={{ marginTop: 0 }}>Serra MVP</h1>
+      <LoadingOverlay show={loading} text="Preparando o barracão…" />
 
-      {/* TELA INICIAL */}
-      {!inRoom && (
-        <div style={{ display: "grid", gap: 12, maxWidth: 520 }}>
-          <label>
-            Seu nome
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                borderRadius: 10,
-                marginTop: 6,
-                background: "#101010",
-                color: "#fff",
-                border: "1px solid #333"
-              }}
-            />
-          </label>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Button
-              onClick={() =>
-                socket.emit("create_room", { name }, (res) => {
-                  if (!res?.ok) return alert(res?.err || "Erro");
-                  setSeat(res.seat);
-                  setState(res.state);
-                  setCodeInput(res.code);
-                })
-              }
-            >
-              Criar sala
-            </Button>
-
-            <input
-              placeholder="CÓDIGO"
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-              style={{
-                flex: 1,
-                padding: 10,
-                borderRadius: 10,
-                background: "#101010",
-                color: "#fff",
-                border: "1px solid #333"
-              }}
-            />
-
-            <Button
-              onClick={() =>
-                socket.emit("join_room", { code: codeInput, name }, (res) => {
-                  if (!res?.ok) return alert(res?.err || "Erro");
-                  setSeat(res.seat);
-                  setState(res.state);
-                })
-              }
-            >
-              Entrar
-            </Button>
-          </div>
-
-          <div style={{ opacity: 0.8, fontSize: 12 }}>
-            Dica: crie uma sala e compartilhe o código com seus amigos.
-          </div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 1000, letterSpacing: 0.4 }}>Serra Online</div>
+          <div style={{ fontSize: 12, color: UI.muted }}>Rústico + gamer • MVP • 2x2</div>
         </div>
-      )}
 
-      {/* DENTRO DA SALA */}
-      {inRoom && state && (
-        <div style={{ display: "grid", gap: 14, maxWidth: 1100 }}>
-          {/* TOPO DA SALA */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <Pill tone={conn === "online" ? "good" : conn === "connecting" ? "warn" : "bad"}>
+            {conn === "online" ? "● Online" : conn === "connecting" ? "● Conectando" : "● Offline"}
+          </Pill>
+          {inRoom && (
+            <Button variant="danger" onClick={leaveRoom} disabled={loading}>
+              Sair
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, maxWidth: 1180 }}>
+        {!inRoom ? (
+          /* ------------------------ START SCREEN ------------------------ */
           <div
             style={{
-              border: "1px solid #333",
-              borderRadius: 14,
-              padding: 12,
               display: "grid",
-              gap: 10
+              gridTemplateColumns: "1.25fr .75fr",
+              gap: 14,
+              alignItems: "start",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <Pill>
-                  Sala: <b style={{ letterSpacing: 2 }}>{state.code}</b>
-                </Pill>
-                <Pill>
-                  Você: <b>Seat {seat + 1}</b>
-                </Pill>
-                <Pill>
-                  Fase: <b>{phase}</b>
-                </Pill>
-                {phase === "playing" && (
-                  <Pill>
-                    ⏱️ Tempo: <b>{timeLeft}s</b>
-                  </Pill>
-                )}
-                <Pill>
-                  Jogadores: <b>{playersCount}/4</b>
-                </Pill>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Button onClick={copyRoomCode}>{copied ? "✅ Copiado!" : "Copiar código"}</Button>
-                <Button onClick={leaveRoomLocal}>Sair</Button>
-
-                {phase === "lobby" && (
-                  <Button
-                    onClick={() => socket.emit("set_ready", { code: state.code, ready: !myReady })}
-                    disabled={playersCount < 1}
-                  >
-                    {myReady ? "Cancelar pronto" : "Pronto"}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* CÓDIGO GIGANTE */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "10px 0 0"
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 44,
-                  fontWeight: 900,
-                  letterSpacing: 10,
-                  padding: "10px 16px",
-                  borderRadius: 16,
-                  border: "1px dashed #444",
-                  background: "#0f0f0f"
-                }}
-              >
-                {state.code}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center", opacity: 0.9 }}>{roomStatusText}</div>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-              <Pill>
-                Trunfo: <b>{state.trumpSuit || "—"}</b>
-              </Pill>
-              <Pill>
-                Carta virada:{" "}
-                <b>{state.faceUp ? `${state.faceUp.v}${state.faceUp.s}` : "—"}</b>
-              </Pill>
-              <Pill>
-                Placar: Time 1 <b>{state.teamScore?.[0] ?? 0}</b> x <b>{state.teamScore?.[1] ?? 0}</b> Time 2
-              </Pill>
-              <Pill>
-                Turno: <b>Seat {(state.turnSeat ?? 0) + 1}</b>
-              </Pill>
-            </div>
-          </div>
-
-          {/* GRID PRINCIPAL */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 14 }}>
-            {/* MESA */}
-            <CardBox title="Mesa">
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {(state.trick || []).map((t, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      padding: 10,
-                      border: "1px solid #444",
-                      borderRadius: 12,
-                      minWidth: 86,
-                      textAlign: "center",
-                      background: t.seat === seat ? "#151515" : "#0f0f0f"
-                    }}
-                  >
-                    <div style={{ fontSize: 12, opacity: 0.85 }}>
-                      Seat {t.seat + 1} {t.seat === seat ? "(você)" : ""}
-                    </div>
-                    <div style={{ fontSize: 26, fontWeight: 700 }}>
-                      {t.card.v}
-                      {t.card.s}
-                    </div>
-                  </div>
-                ))}
-                {(!state.trick || state.trick.length === 0) && (
-                  <div style={{ opacity: 0.7 }}>Aguardando jogadas…</div>
-                )}
-              </div>
-
-              <div style={{ marginTop: 12, opacity: 0.9 }}>
-                Líder: <b>Seat {(state.leaderSeat ?? 0) + 1}</b> •{" "}
-                {isMyTurn ? <b>✅ É seu turno!</b> : <span>É a vez do Seat {(state.turnSeat ?? 0) + 1}</span>}
-              </div>
-
-              <h3>Sua mão</h3>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {hand.map((c) => (
-                  <button
-                    key={c.id}
-                    disabled={!isMyTurn}
-                    onClick={() =>
-                      socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
-                        if (!res?.ok) alert(res?.err || "Jogada inválida");
-                      })
-                    }
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid #444",
-                      background: isMyTurn ? "#141414" : "#0f0f0f",
-                      color: "#fff",
-                      cursor: isMyTurn ? "pointer" : "not-allowed"
-                    }}
-                  >
-                    {c.v}
-                    {c.s}
-                  </button>
-                ))}
-                {hand.length === 0 && <div style={{ opacity: 0.7 }}>Sem cartas (ou aguardando início)</div>}
-              </div>
-
-              {phase === "ended" && (
-                <div style={{ marginTop: 14, padding: 12, borderRadius: 14, border: "1px solid #555" }}>
-                  <b>Partida encerrada.</b> (MVP) — reinicie criando nova sala.
+            <Panel title="Entrar no jogo" right={<Pill tone="accent">61+ pontos</Pill>}>
+              <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <div style={{ fontSize: 12, color: UI.muted }}>Seu nome</div>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
-              )}
-            </CardBox>
 
-            {/* LOBBY / CHAT */}
-            <CardBox title="Lobby / Chat">
-              <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
-                {state.names.map((n, i) => {
-                  const occupied = !!n;
-                  const isMe = i === seat;
-                  const ready = !!state.ready?.[i];
-
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        opacity: occupied ? 1 : 0.5,
-                        padding: "8px 10px",
-                        borderRadius: 12,
-                        border: "1px solid #222",
-                        background: isMe ? "#121212" : "#0f0f0f"
-                      }}
-                    >
-                      <span>
-                        Seat {i + 1}: <b>{n || "—"}</b> {isMe ? <span style={{ opacity: 0.85 }}> (você)</span> : ""}
-                      </span>
-                      <span title={ready ? "Pronto" : "Aguardando"}>
-                        {occupied ? (ready ? "✅" : "⏳") : "—"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div
-                style={{
-                  height: 240,
-                  overflow: "auto",
-                  border: "1px solid #222",
-                  borderRadius: 12,
-                  padding: 10,
-                  marginBottom: 10,
-                  background: "#0f0f0f"
-                }}
-              >
-                {(state.chat || []).map((m, i) => (
-                  <div key={i} style={{ marginBottom: 6 }}>
-                    <b>{m.name}:</b> <span>{m.msg}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={chatMsg}
-                  onChange={(e) => setChatMsg(e.target.value)}
-                  placeholder="Digite…"
+                {/* ✅ sem sobreposição: grid */}
+                <div
                   style={{
-                    flex: 1,
-                    padding: 10,
-                    borderRadius: 10,
-                    background: "#101010",
-                    color: "#fff",
-                    border: "1px solid #333"
-                  }}
-                />
-                <Button
-                  onClick={() => {
-                    const msg = chatMsg.trim();
-                    if (!msg) return;
-                    socket.emit("chat", { code: state.code, msg }, (res) => {
-                      if (!res?.ok) alert(res?.err || "Erro");
-                    });
-                    setChatMsg("");
+                    display: "grid",
+                    gridTemplateColumns: "auto 1fr auto",
+                    gap: 10,
+                    alignItems: "center",
                   }}
                 >
-                  Enviar
-                </Button>
-              </div>
-
-              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {["Tem bisca aí?", "Confia em mim…", "Obrigado pela bisca!", "É minha!", "Que azar!"].map((t) => (
-                  <Button key={t} onClick={() => socket.emit("chat", { code: state.code, msg: t })}>
-                    {t}
+                  <Button onClick={createRoom} disabled={conn !== "online"}>
+                    Criar sala
                   </Button>
-                ))}
+
+                  <Input
+                    placeholder="CÓDIGO DA SALA"
+                    value={codeInput}
+                    onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                  />
+
+                  <Button onClick={joinRoom} disabled={conn !== "online"}>
+                    Entrar
+                  </Button>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Pill>Compartilhe o código com amigos</Pill>
+                  <Pill>Lobby inicia quando 4 estiverem prontos</Pill>
+                </div>
+
+                {conn !== "online" && (
+                  <div style={{ marginTop: 8, color: UI.warn, fontSize: 12, fontWeight: 900 }}>
+                    ⚠️ Socket offline. Ajuste a URL em <code style={{ color: UI.text }}>client/src/net.js</code>
+                  </div>
+                )}
               </div>
-            </CardBox>
+            </Panel>
+
+            <Panel title="Trunfos universais (visuais)">
+              <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.55 }}>
+                <div>
+                  🐝 Zangão: <b style={{ color: UI.text }}>3♣</b>
+                </div>
+                <div>
+                  🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b>
+                </div>
+                <div>
+                  👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b>
+                </div>
+                <div>
+                  ✨ Dourado: <b style={{ color: UI.text }}>A♦</b> (quando trunfo da rodada for{" "}
+                  <b style={{ color: UI.text }}>♣</b>)
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  🃏 Trunfo da rodada é uma <b style={{ color: UI.text }}>carta real</b> virada.
+                </div>
+              </div>
+            </Panel>
           </div>
-        </div>
-      )}
+        ) : (
+          /* ------------------------- IN ROOM -------------------------- */
+          <div style={{ display: "grid", gap: 14 }}>
+            <Panel
+              title="Sala"
+              right={
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <Pill tone="neutral">
+                    Você: <b style={{ color: UI.text }}>Seat {seat + 1}</b>
+                  </Pill>
+                  <Pill tone={phase === "playing" ? "good" : phase === "ended" ? "bad" : "warn"}>
+                    Fase: <b style={{ color: UI.text }}>{phase}</b>
+                  </Pill>
+                  {phase === "playing" && (
+                    <Pill tone={timeLeft <= 5 ? "bad" : "accent"}>
+                      ⏱️ <b style={{ color: UI.text }}>{timeLeft}s</b>
+                    </Pill>
+                  )}
+                </div>
+              }
+            >
+              <div style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Pill tone="accent">
+                      Código: <b style={{ color: UI.text, letterSpacing: 3 }}>{state.code}</b>
+                    </Pill>
+                    <Pill>
+                      Jogadores: <b style={{ color: UI.text }}>{playersCount}/4</b>
+                    </Pill>
+                    <Pill>
+                      Trunfo (naipe): <b style={{ color: UI.text }}>{trumpSuit || "—"}</b>
+                    </Pill>
+                    <Pill>
+                      Placar: <b style={{ color: UI.text }}>{state.teamScore?.[0] ?? 0}</b> x{" "}
+                      <b style={{ color: UI.text }}>{state.teamScore?.[1] ?? 0}</b>
+                    </Pill>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Button variant="ghost" onClick={copyRoomCode}>
+                      {copied ? "✅ Copiado!" : "Copiar código"}
+                    </Button>
+                    {phase === "lobby" && (
+                      <Button onClick={() => socket.emit("set_ready", { code: state.code, ready: !myReady })}>
+                        {myReady ? "Cancelar pronto" : "Pronto"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "center", color: UI.muted }}>{roomStatus}</div>
+              </div>
+            </Panel>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start" }}>
+              <Panel
+                title="Mesa"
+                right={
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <Pill>
+                      líder: <b style={{ color: UI.text }}>Seat {(state.leaderSeat ?? 0) + 1}</b>
+                    </Pill>
+                    <Pill tone={isMyTurn ? "good" : "neutral"}>
+                      turno: <b style={{ color: UI.text }}>Seat {(state.turnSeat ?? 0) + 1}</b>{" "}
+                      {isMyTurn ? "(você)" : ""}
+                    </Pill>
+                  </div>
+                }
+              >
+                {/* Trick */}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {(state.trick || []).map((t, i) => (
+                    <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                      <div style={{ fontSize: 12, color: UI.muted }}>
+                        Seat {t.seat + 1} {t.seat === seat ? "(você)" : ""}
+                      </div>
+                      <Card card={t.card} trumpSuit={trumpSuit} trumpCard={trumpCard} disabled />
+                    </div>
+                  ))}
+                  {(!state.trick || state.trick.length === 0) && <div style={{ color: UI.muted }}>Aguardando jogadas…</div>}
+                </div>
+
+                {/* Deck + Trump card area */}
+                <div style={{ marginTop: 14, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                  <DeckStack count={state.deckCount ?? 0} />
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <Pill tone="warn">
+                      Bisca: <b style={{ color: UI.text }}>A</b> e <b style={{ color: UI.text }}>7</b> (não-trunfo)
+                    </Pill>
+                    <Pill tone="accent">Trunfo universal: Zangão / Pé de Pinto / Dama Fina / Dourado*</Pill>
+
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>Carta virada:</div>
+                      {state.faceUp ? (
+                        <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
+                      ) : (
+                        <div style={{ color: UI.muted, fontSize: 12 }}>(ainda não enviada pelo servidor como carta)</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hand */}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                    <h3 style={{ margin: "0 0 8px", fontSize: 14, letterSpacing: 0.2 }}>Sua mão</h3>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      {phase === "playing"
+                        ? isMyTurn
+                          ? "Sua vez: jogue uma carta."
+                          : "Aguardando sua vez…"
+                        : "Aguardando início…"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {hand.map((c) => (
+                      <Card
+                        key={c.id}
+                        card={c}
+                        trumpSuit={trumpSuit}
+                        trumpCard={trumpCard}
+                        highlight={isMyTurn}
+                        disabled={!isMyTurn}
+                        onClick={() =>
+                          socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
+                            if (!res?.ok) alert(res?.err || "Jogada inválida");
+                          })
+                        }
+                      />
+                    ))}
+                    {hand.length === 0 && <div style={{ color: UI.muted }}>Sem cartas (ou aguardando início)</div>}
+                  </div>
+
+                  {phase === "ended" && (
+                    <div
+                      style={{
+                        marginTop: 14,
+                        padding: 12,
+                        borderRadius: 14,
+                        border: "1px solid rgba(255,92,122,.35)",
+                        background: "rgba(255,92,122,.08)",
+                      }}
+                    >
+                      <b>Partida encerrada.</b> (MVP) — crie uma nova sala para jogar novamente.
+                    </div>
+                  )}
+                </div>
+              </Panel>
+
+              <Panel title="Lobby / Chat">
+                {/* Seats */}
+                <div style={{ display: "grid", gap: 8 }}>
+                  {state.names.map((n, i) => {
+                    const occupied = !!n;
+                    const isMe = i === seat;
+                    const ready = !!state.ready?.[i];
+
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 12px",
+                          borderRadius: 14,
+                          border: `1px solid ${UI.border}`,
+                          background: isMe ? "rgba(110,231,255,.08)" : "rgba(255,255,255,.02)",
+                          opacity: occupied ? 1 : 0.55,
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 2 }}>
+                          <div style={{ fontWeight: 1000 }}>
+                            Seat {i + 1} {isMe ? <span style={{ color: UI.accent }}>(você)</span> : ""}
+                          </div>
+                          <div style={{ fontSize: 12, color: UI.muted }}>{n || "—"}</div>
+                        </div>
+                        <div>
+                          {!occupied ? <Pill>Vazio</Pill> : ready ? <Pill tone="good">Pronto</Pill> : <Pill tone="warn">Aguardando</Pill>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Chat */}
+                <div
+                  style={{
+                    marginTop: 12,
+                    height: 240,
+                    overflow: "auto",
+                    border: `1px solid ${UI.border}`,
+                    borderRadius: 14,
+                    padding: 10,
+                    background: "rgba(0,0,0,.18)",
+                  }}
+                >
+                  {(state.chat || []).map((m, i) => (
+                    <div key={i} style={{ marginBottom: 8, lineHeight: 1.25 }}>
+                      <span style={{ fontWeight: 1000 }}>{m.name}:</span>{" "}
+                      <span style={{ color: UI.text }}>{m.msg}</span>
+                    </div>
+                  ))}
+                  {(!state.chat || state.chat.length === 0) && <div style={{ color: UI.muted }}>Sem mensagens ainda…</div>}
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <Input value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} placeholder="Digite…" />
+                  <Button
+                    onClick={() => {
+                      const msg = chatMsg.trim();
+                      if (!msg) return;
+                      socket.emit("chat", { code: state.code, msg }, (res) => {
+                        if (!res?.ok) alert(res?.err || "Erro");
+                      });
+                      setChatMsg("");
+                    }}
+                  >
+                    Enviar
+                  </Button>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["Tem bisca aí?", "Confia em mim…", "Obrigado pela bisca!", "É minha!", "Que azar!"].map((t) => (
+                    <Button key={t} variant="ghost" onClick={() => socket.emit("chat", { code: state.code, msg: t })}>
+                      {t}
+                    </Button>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
