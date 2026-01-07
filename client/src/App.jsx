@@ -569,14 +569,27 @@ export default function App() {
         }}
       >
         {/* Logo topo central (sem texto) */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <img
-  		src="/logo-sem-fundo.png"
-  		alt="Serra Online"
-  		style={{ height: 82, filter: "drop-shadow(0 10px 24px rgba(0,0,0,.6))" }}
-	  />
+        <div
+  	style={{
+    		position: "absolute",
+    		top: 18,
+    		left: "50%",
+    		transform: "translateX(-50%)",
+    		zIndex: 2,
+    		pointerEvents: "none",
+  		}}
+	>
+  	<img
+    		src="/logo-sem-fundo.png"
+    		alt="Serra Online"
+    	style={{
+     	 height: 82,
+      	opacity: 0.95,
+      	filter: "drop-shadow(0 12px 28px rgba(0,0,0,.65))",
+    	}}
+ 	 />
+	</div>
 
-        </div>
 
         {/* Header utilitário (status + sair) */}
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
