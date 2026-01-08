@@ -740,133 +740,279 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start" }}>
                   {/* MESA */}
                   <Panel
-                    title="Mesa"
-                    right={
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <Pill>líder: <b style={{ color: UI.text }}>Seat {(state.leaderSeat ?? 0) + 1}</b></Pill>
-                        <Pill tone={isMyTurn ? "good" : "neutral"}>
-                          turno: <b style={{ color: UI.text }}>Seat {(state.turnSeat ?? 0) + 1}</b> {isMyTurn ? "(você)" : ""}
-                        </Pill>
-                      </div>
-                    }
-                  >
-                    <div
-                      style={{
-                        borderRadius: 18,
-                        border: `1px solid ${UI.border}`,
-                        background:
-                          "radial-gradient(circle at 50% 45%, rgba(255,255,255,.06), rgba(0,0,0,.08) 60%), linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.32))",
-                        padding: 14,
-                        minHeight: 420,
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          background:
-                            "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 10px)",
-                          opacity: 0.6,
-                          pointerEvents: "none",
-                        }}
-                      />
+  title="Mesa"
+  right={
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+      <Pill tone="neutral">
+        <b style={{ color: UI.text }}>
+          {(state?.names?.[state?.leaderSeat ?? 0] || "—")} está no serra
+        </b>
+      </Pill>
 
-                      {/* Top */}
-                      {pos && (
-                        <div style={{ position: "absolute", top: 10, left: 0, right: 0, display: "grid", placeItems: "center", gap: 6 }}>
-                          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
-                            Seat {pos.top + 1} • {state.names?.[pos.top] || "—"} • {state.handCounts?.[pos.top] ?? 0} cartas
-                          </div>
-                          <FaceDownFan count={state.handCounts?.[pos.top] ?? 0} />
-                        </div>
-                      )}
+      <Pill tone={isMyTurn ? "good" : "neutral"}>
+        Vez de:{" "}
+        <b style={{ color: UI.text }}>
+          {(state?.names?.[state?.turnSeat ?? 0] || "—")}
+          {isMyTurn ? " (você)" : ""}
+        </b>
+      </Pill>
+    </div>
+  }
+>
+  <div
+    style={{
+      borderRadius: 18,
+      border: `1px solid ${UI.border}`,
+      background: `
+        radial-gradient(circle at 50% 45%, rgba(255,255,255,.05), rgba(0,0,0,.16) 62%),
+        linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.36))
+      `,
+      padding: 14,
+      minHeight: 560,
+      position: "relative",
+      overflow: "hidden",
+    }}
+  >
+    {/* textura leve */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background:
+          "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 12px)",
+        opacity: 0.5,
+        pointerEvents: "none",
+      }}
+    />
 
-                      {/* Left */}
-                      {pos && (
-                        <div style={{ position: "absolute", top: 120, left: 10, display: "grid", placeItems: "center", gap: 6 }}>
-                          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(-90deg)" }}>
-                            Seat {pos.left + 1}
-                          </div>
-                          <FaceDownFan count={state.handCounts?.[pos.left] ?? 0} />
-                        </div>
-                      )}
+    {/* Fundo da mesa (imagem) */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 10,
+        borderRadius: 16,
+        backgroundImage: "url(/mesa-do-jogo.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        filter: "saturate(1.05) contrast(1.02)",
+        opacity: 0.95,
+      }}
+    />
 
-                      {/* Right */}
-                      {pos && (
-                        <div style={{ position: "absolute", top: 120, right: 10, display: "grid", placeItems: "center", gap: 6 }}>
-                          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, transform: "rotate(90deg)" }}>
-                            Seat {pos.right + 1}
-                          </div>
-                          <FaceDownFan count={state.handCounts?.[pos.right] ?? 0} />
-                        </div>
-                      )}
+    {/* Vinheta */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 10,
+        borderRadius: 16,
+        background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,.18), rgba(0,0,0,.55) 72%)",
+        pointerEvents: "none",
+      }}
+    />
 
-                      {/* Center */}
-                      <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                        <div style={{ display: "grid", gap: 10, placeItems: "center" }}>
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                            {(state.trick || []).map((t, i) => (
-                              <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
-                                <div style={{ fontSize: 12, color: UI.muted }}>
-                                  Seat {t.seat + 1} {t.seat === seat ? "(você)" : ""}
-                                </div>
-                                <Card card={t.card} trumpSuit={trumpSuit} trumpCard={trumpCard} disabled />
-                              </div>
-                            ))}
-                            {(!state.trick || state.trick.length === 0) && <div style={{ color: UI.muted }}>Aguardando jogadas…</div>}
-                          </div>
+    {(() => {
+      const nameOf = (i) => (state?.names?.[i] ? state.names[i] : "—");
+      const countOf = (i) => state?.handCounts?.[i] ?? 0;
 
-                          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
-                            <DeckStack count={state.deckCount ?? 0} compact />
+      // troca do trunfo quando trunfo for ♣ e você tiver 3♣ ou 4♣
+      const swapCandidate =
+        hand?.find((c) => c?.naipe === "♣" && (c?.valor === "3" || c?.valor === "4")) || null;
 
-                            <div style={{ display: "grid", gap: 8 }}>
-                              <Pill tone="warn">
-                                Bisca: <b style={{ color: UI.text }}>A</b> e <b style={{ color: UI.text }}>7</b> (não-trunfo)
-                              </Pill>
-                              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>Carta virada:</div>
-                                {state.faceUp ? (
-                                  <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
-                                ) : (
-                                  <div style={{ color: UI.muted, fontSize: 12 }}>(sem carta virada)</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+      const canSwapTrump =
+        phase === "playing" &&
+        state?.trumpSuit === "♣" &&
+        !!state?.faceUp &&
+        !!swapCandidate;
 
-                      {/* Bottom (YOU) */}
-                      {pos && (
-                        <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, display: "grid", placeItems: "center", gap: 8 }}>
-                          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
-                            Você • Seat {pos.bottom + 1} • {hand.length} cartas {isMyTurn ? "• SUA VEZ" : ""}
-                          </div>
+      function swapTrump() {
+        if (!canSwapTrump) return;
+        socket.emit("swap_trump", { code: state.code, cardId: swapCandidate.id }, (res) => {
+          if (!res?.ok) alert(res?.err || "Não foi possível trocar o trunfo.");
+        });
+      }
 
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                            {hand.map((c) => (
-                              <Card
-                                key={c.id}
-                                card={c}
-                                trumpSuit={trumpSuit}
-                                trumpCard={trumpCard}
-                                highlight={isMyTurn}
-                                disabled={!isMyTurn}
-                                onClick={() =>
-                                  socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
-                                    if (!res?.ok) alert(res?.err || "Jogada inválida");
-                                  })
-                                }
-                              />
-                            ))}
-                            {hand.length === 0 && <div style={{ color: UI.muted }}>Sem cartas (ou aguardando início)</div>}
-                          </div>
-                        </div>
-                      )}
+      return (
+        <>
+          {/* TOP */}
+          {pos && (
+            <div
+              style={{
+                position: "absolute",
+                top: 22,
+                left: 0,
+                right: 0,
+                display: "grid",
+                placeItems: "center",
+                gap: 8,
+              }}
+            >
+              <div style={{ color: "rgba(245,246,248,.85)", fontSize: 12, fontWeight: 1000 }}>
+                {nameOf(pos.top)} • {countOf(pos.top)} cartas
+              </div>
+              <FaceDownFan count={countOf(pos.top)} />
+            </div>
+          )}
+
+          {/* LEFT */}
+          {pos && (
+            <div
+              style={{
+                position: "absolute",
+                top: 156,
+                left: 18,
+                display: "grid",
+                placeItems: "center",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  color: "rgba(245,246,248,.85)",
+                  fontSize: 12,
+                  fontWeight: 1000,
+                  transform: "rotate(-90deg)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {nameOf(pos.left)} • {countOf(pos.left)}
+              </div>
+              <FaceDownFan count={countOf(pos.left)} />
+            </div>
+          )}
+
+          {/* RIGHT */}
+          {pos && (
+            <div
+              style={{
+                position: "absolute",
+                top: 156,
+                right: 18,
+                display: "grid",
+                placeItems: "center",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  color: "rgba(245,246,248,.85)",
+                  fontSize: 12,
+                  fontWeight: 1000,
+                  transform: "rotate(90deg)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {nameOf(pos.right)} • {countOf(pos.right)}
+              </div>
+              <FaceDownFan count={countOf(pos.right)} />
+            </div>
+          )}
+
+          {/* CENTER */}
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+            <div style={{ display: "grid", gap: 14, placeItems: "center" }}>
+              {/* Cartas jogadas */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                {(state?.trick || []).map((t, i) => (
+                  <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                    <div style={{ fontSize: 12, color: "rgba(245,246,248,.75)", fontWeight: 900 }}>
+                      {nameOf(t.seat)} {t.seat === seat ? "(você)" : ""}
                     </div>
-                  </Panel>
+                    <Card card={t.card} trumpSuit={trumpSuit} trumpCard={trumpCard} disabled />
+                  </div>
+                ))}
+              </div>
+
+              {/* Monte + trunfo virado (SEM textos “monte/trunfo…”) */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                {/* contador */}
+                <div style={{ display: "grid", justifyItems: "center", gap: 6 }}>
+                  <DeckStack count={state?.deckCount ?? 0} compact />
+                  <div style={{ fontSize: 12, color: "rgba(245,246,248,.82)", fontWeight: 1000 }}>
+                    Cartas restantes: {state?.deckCount ?? 0}
+                  </div>
+                </div>
+
+                {/* carta virada */}
+                {state?.faceUp ? (
+                  <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
+                ) : null}
+
+                {/* frase */}
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(255,255,255,.10)",
+                    background: "rgba(0,0,0,.28)",
+                    color: "rgba(245,246,248,.78)",
+                    fontSize: 12,
+                    fontWeight: 900,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  Aguardando jogadas…
+                </div>
+
+                {/* botão de troca (só quando puder) */}
+                {canSwapTrump && (
+                  <Button onClick={swapTrump} style={{ width: "auto" }}>
+                    Trocar com {swapCandidate.valor}♣
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM (VOCÊ) */}
+          {pos && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 20,
+                left: 0,
+                right: 0,
+                display: "grid",
+                placeItems: "center",
+                gap: 10,
+              }}
+            >
+              <div style={{ color: "rgba(245,246,248,.80)", fontSize: 12, fontWeight: 1000 }}>
+                {state?.names?.[pos.bottom] || "Você"} • {hand.length} cartas {isMyTurn ? "• SUA VEZ" : ""}
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                {hand.map((c) => (
+                  <Card
+                    key={c.id}
+                    card={c}
+                    trumpSuit={trumpSuit}
+                    trumpCard={trumpCard}
+                    highlight={isMyTurn}
+                    disabled={!isMyTurn}
+                    onClick={() =>
+                      socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
+                        if (!res?.ok) alert(res?.err || "Jogada inválida");
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      );
+    })()}
+  </div>
+</Panel>
+
 
                   {/* LOBBY / CHAT */}
                   <Panel title="Lobby / Chat">
