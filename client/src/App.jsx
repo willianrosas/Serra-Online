@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "./net.js";
 import { Card, DeckStack, FaceDownFan } from "./ui/cards.jsx";
@@ -7,7 +8,7 @@ const UI = {
   border: "rgba(255,255,255,.10)",
   text: "rgba(245,246,248,.95)",
   muted: "rgba(245,246,248,.70)",
-  accent: "rgba(150,220,255,.95)", // azul claro
+  accent: "rgba(150,220,255,.95)",
   good: "rgba(80,250,123,.95)",
   warn: "rgba(255,209,102,.95)",
   bad: "rgba(255,92,122,.95)",
@@ -146,13 +147,14 @@ function Panel({ title, right, children }) {
 }
 
 function Pill({ tone = "neutral", children }) {
-  const m = {
-    neutral: { b: UI.border, bg: "rgba(255,255,255,.04)", c: UI.muted },
-    accent: { b: "rgba(150,220,255,.35)", bg: "rgba(150,220,255,.10)", c: UI.accent },
-    good: { b: "rgba(80,250,123,.35)", bg: "rgba(80,250,123,.10)", c: UI.good },
-    warn: { b: "rgba(255,209,102,.35)", bg: "rgba(255,209,102,.10)", c: UI.warn },
-    bad: { b: "rgba(255,92,122,.35)", bg: "rgba(255,92,122,.10)", c: UI.bad },
-  }[tone];
+  const m =
+    {
+      neutral: { b: UI.border, bg: "rgba(255,255,255,.04)", c: UI.muted },
+      accent: { b: "rgba(150,220,255,.35)", bg: "rgba(150,220,255,.10)", c: UI.accent },
+      good: { b: "rgba(80,250,123,.35)", bg: "rgba(80,250,123,.10)", c: UI.good },
+      warn: { b: "rgba(255,209,102,.35)", bg: "rgba(255,209,102,.10)", c: UI.warn },
+      bad: { b: "rgba(255,92,122,.35)", bg: "rgba(255,92,122,.10)", c: UI.bad },
+    }[tone] || { b: UI.border, bg: "rgba(255,255,255,.04)", c: UI.muted };
 
   return (
     <span
@@ -243,7 +245,9 @@ function EndModal({ show, title, subtitle, onRestart }) {
         <div style={{ fontSize: 18, fontWeight: 1100 }}>{title}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
         <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <Button onClick={onRestart} style={{ width: "auto" }}>Nova rodada</Button>
+          <Button onClick={onRestart} style={{ width: "auto" }}>
+            Nova rodada
+          </Button>
         </div>
       </div>
     </div>
@@ -526,6 +530,27 @@ export default function App() {
     return `Placar final: Time 1 ${t0} x ${t1} Time 2 • Código da sala: ${state.code}`;
   }, [phase, state]);
 
+  const NameBadge = ({ children, style }) => (
+    <div
+      style={{
+        padding: "6px 10px",
+        borderRadius: 999,
+        border: "1px solid rgba(255,255,255,.10)",
+        background: "rgba(0,0,0,.35)",
+        color: "rgba(245,246,248,.92)",
+        fontSize: 12,
+        fontWeight: 1000,
+        letterSpacing: 0.2,
+        backdropFilter: "blur(6px)",
+        boxShadow: "0 10px 24px rgba(0,0,0,.35)",
+        whiteSpace: "nowrap",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+
   return (
     <div
       style={{
@@ -533,12 +558,7 @@ export default function App() {
         padding: 18,
         color: UI.text,
         fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-
-        /* FUNDO TEMÁTICO */
-        backgroundImage: `
-          linear-gradient(rgba(0,0,0,.50), rgba(0,0,0,.62)),
-          url("/bg-colonos.png")
-        `,
+        backgroundImage: `linear-gradient(rgba(0,0,0,.50), rgba(0,0,0,.62)), url("/bg-colonos.png")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
@@ -555,39 +575,24 @@ export default function App() {
 
       <EndModal show={phase === "ended"} title={endTitle} subtitle={endSubtitle} onRestart={restartGame} />
 
-      {/* STAGE (plataforma azul claro) */}
-      <div
-  style={{
-    maxWidth: 1220,
-    margin: "0 auto",
-    position: "relative",
-    paddingTop: 170, // ⬅️ stage mais baixo (ANTES: 110)
-  }}
->
-  {/* LOGO CENTRAL */}
-  <div
-    style={{
-      position: "absolute",
-      top: -10, // ⬅️ logo sobe levemente
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 5,
-      pointerEvents: "none",
-    }}
-  >
-    <img
-      src="/logo-sem-fundo.png"
-      alt="Serra Online"
-      style={{
-        height: 180, // mantém grande
-        maxWidth: "86vw",
-        objectFit: "contain",
-        filter:
-          "drop-shadow(0 28px 60px rgba(0,0,0,.75)) drop-shadow(0 0 20px rgba(150,220,255,.18))",
-      }}
-    />
-  </div>
-
+      {/* STAGE */}
+      <div style={{ maxWidth: 1220, margin: "0 auto", position: "relative", paddingTop: 170 }}>
+        {/* LOGO CENTRAL */}
+        <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", zIndex: 5, pointerEvents: "none" }}>
+          <img
+            src="/logo-sem-fundo.png"
+            alt="Serra Online"
+            style={{
+              height: 180,
+              maxWidth: "86vw",
+              objectFit: "contain",
+              filter: "drop-shadow(0 28px 60px rgba(0,0,0,.75)) drop-shadow(0 0 20px rgba(150,220,255,.18))",
+            }}
+            onError={(e) => {
+              e.currentTarget.src = "/logo sem fundo.png";
+            }}
+          />
+        </div>
 
         <div
           style={{
@@ -601,7 +606,7 @@ export default function App() {
             overflow: "hidden",
           }}
         >
-          {/* Header (sem “Serra Online” texto) */}
+          {/* Header */}
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Pill tone={conn === "online" ? "good" : conn === "connecting" ? "warn" : "bad"}>
               {conn === "online" ? "● Online" : conn === "connecting" ? "● Conectando" : "● Offline"}
@@ -624,42 +629,35 @@ export default function App() {
                       <Input value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
 
-                    {/* AÇÕES CENTRAIS: Botão | PIN | Botão (com espaço igual e sem estourar) */}
                     <div className="start-actions-fixed">
-  		     <div className="action-col left">
-    		      <Button onClick={createRoom} disabled={conn !== "online" || loading} style={{ width: "100%", maxWidth: 220 }}>
-      		       <Icon name="plus" />
-      		       Criar sala
-    		      </Button>
-  		     </div>
+                      <div className="action-col left">
+                        <Button onClick={createRoom} disabled={conn !== "online" || loading} style={{ width: "100%", maxWidth: 220 }}>
+                          <Icon name="plus" />
+                          Criar sala
+                        </Button>
+                      </div>
 
-  		   <div className="action-col mid">
-    		    <PinCodeInput value={codeNormalized} onChange={setCodeInput} disabled={conn !== "online" || loading} />
-    		    <div
-      		     className="pin-hint"
-      		     style={{
-        		fontSize: 11,
-        		textAlign: "center",
-        		color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn,
-      		     }}
-    		   >
-     		     {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código válido" : "Código inválido"}
-    		   </div>
- 		  </div>
+                      <div className="action-col mid">
+                        <PinCodeInput value={codeNormalized} onChange={setCodeInput} disabled={conn !== "online" || loading} />
+                        <div
+                          className="pin-hint"
+                          style={{
+                            fontSize: 11,
+                            textAlign: "center",
+                            color: codeInput.length === 0 ? UI.muted : codeLooksValid ? UI.good : UI.warn,
+                          }}
+                        >
+                          {codeInput.length === 0 ? "5 caracteres" : codeLooksValid ? "Código válido" : "Código inválido"}
+                        </div>
+                      </div>
 
-  		  <div className="action-col right">
-    		   <Button
-      		    onClick={joinRoom}
-      		    disabled={conn !== "online" || !codeLooksValid || loading}
-      		    style={{ width: "100%", maxWidth: 220 }}
-    		  >
-      		    <Icon name="enter" />
-      		    Entrar
-    		   </Button>
-  		  </div>
-		 </div>
-
-
+                      <div className="action-col right">
+                        <Button onClick={joinRoom} disabled={conn !== "online" || !codeLooksValid || loading} style={{ width: "100%", maxWidth: 220 }}>
+                          <Icon name="enter" />
+                          Entrar
+                        </Button>
+                      </div>
+                    </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <Pill>Compartilhe o código com amigos</Pill>
@@ -670,9 +668,15 @@ export default function App() {
 
                 <Panel title="Trunfos universais (visuais)">
                   <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.55 }}>
-                    <div>🐝 Zangão: <b style={{ color: UI.text }}>3♣</b></div>
-                    <div>🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b></div>
-                    <div>👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b></div>
+                    <div>
+                      🐝 Zangão: <b style={{ color: UI.text }}>3♣</b>
+                    </div>
+                    <div>
+                      🐓 Pé de Pinto: <b style={{ color: UI.text }}>A♣</b>
+                    </div>
+                    <div>
+                      👑 Dama Fina: <b style={{ color: UI.text }}>Q♠</b>
+                    </div>
                     <div>
                       ✨ Dourado: <b style={{ color: UI.text }}>A♦</b> (quando trunfo da rodada for <b style={{ color: UI.text }}>♣</b>)
                     </div>
@@ -683,15 +687,14 @@ export default function App() {
                 </Panel>
               </div>
             ) : (
-              /* =========================
-                 IN-ROOM (SEU ORIGINAL)
-                 ========================= */
               <div style={{ display: "grid", gap: 14 }}>
                 <Panel
                   title="Sala"
                   right={
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <Pill tone="neutral">Você: <b style={{ color: UI.text }}>Seat {seat + 1}</b></Pill>
+                      <Pill tone="neutral">
+                        Você: <b style={{ color: UI.text }}>Assento {seat + 1}</b>
+                      </Pill>
                       <Pill tone={phase === "playing" ? "good" : phase === "ended" ? "bad" : "warn"}>
                         Fase: <b style={{ color: UI.text }}>{phase}</b>
                       </Pill>
@@ -706,9 +709,15 @@ export default function App() {
                   <div style={{ display: "grid", gap: 12 }}>
                     <div style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <Pill tone="accent">Código: <b style={{ color: UI.text, letterSpacing: 3 }}>{state.code}</b></Pill>
-                        <Pill>Jogadores: <b style={{ color: UI.text }}>{playersCount}/4</b></Pill>
-                        <Pill>Trunfo: <b style={{ color: UI.text }}>{trumpSuit || "—"}</b></Pill>
+                        <Pill tone="accent">
+                          Código: <b style={{ color: UI.text, letterSpacing: 3 }}>{state.code}</b>
+                        </Pill>
+                        <Pill>
+                          Jogadores: <b style={{ color: UI.text }}>{playersCount}/4</b>
+                        </Pill>
+                        <Pill>
+                          Trunfo: <b style={{ color: UI.text }}>{trumpSuit || "—"}</b>
+                        </Pill>
                         <Pill>
                           Placar: <b style={{ color: UI.text }}>{state.teamScore?.[0] ?? 0}</b> x{" "}
                           <b style={{ color: UI.text }}>{state.teamScore?.[1] ?? 0}</b>
@@ -740,279 +749,313 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 14, alignItems: "start" }}>
                   {/* MESA */}
                   <Panel
-  title="Mesa"
-  right={
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-      <Pill tone="neutral">
-        <b style={{ color: UI.text }}>
-          {(state?.names?.[state?.leaderSeat ?? 0] || "—")} está no serra
-        </b>
-      </Pill>
-
-      <Pill tone={isMyTurn ? "good" : "neutral"}>
-        Vez de:{" "}
-        <b style={{ color: UI.text }}>
-          {(state?.names?.[state?.turnSeat ?? 0] || "—")}
-          {isMyTurn ? " (você)" : ""}
-        </b>
-      </Pill>
-    </div>
-  }
->
-  <div
-    style={{
-      borderRadius: 18,
-      border: `1px solid ${UI.border}`,
-      background: `
-        radial-gradient(circle at 50% 45%, rgba(255,255,255,.05), rgba(0,0,0,.16) 62%),
-        linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.36))
-      `,
-      padding: 14,
-      minHeight: 560,
-      position: "relative",
-      overflow: "hidden",
-    }}
-  >
-    {/* textura leve */}
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        background:
-          "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 12px)",
-        opacity: 0.5,
-        pointerEvents: "none",
-      }}
-    />
-
-    {/* Fundo da mesa (imagem) */}
-    <div
-      style={{
-        position: "absolute",
-        inset: 10,
-        borderRadius: 16,
-        backgroundImage: "url(/mesa-do-jogo.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        filter: "saturate(1.05) contrast(1.02)",
-        opacity: 0.95,
-      }}
-    />
-
-    {/* Vinheta */}
-    <div
-      style={{
-        position: "absolute",
-        inset: 10,
-        borderRadius: 16,
-        background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,.18), rgba(0,0,0,.55) 72%)",
-        pointerEvents: "none",
-      }}
-    />
-
-    {(() => {
-      const nameOf = (i) => (state?.names?.[i] ? state.names[i] : "—");
-      const countOf = (i) => state?.handCounts?.[i] ?? 0;
-
-      // troca do trunfo quando trunfo for ♣ e você tiver 3♣ ou 4♣
-      const swapCandidate =
-        hand?.find((c) => c?.naipe === "♣" && (c?.valor === "3" || c?.valor === "4")) || null;
-
-      const canSwapTrump =
-        phase === "playing" &&
-        state?.trumpSuit === "♣" &&
-        !!state?.faceUp &&
-        !!swapCandidate;
-
-      function swapTrump() {
-        if (!canSwapTrump) return;
-        socket.emit("swap_trump", { code: state.code, cardId: swapCandidate.id }, (res) => {
-          if (!res?.ok) alert(res?.err || "Não foi possível trocar o trunfo.");
-        });
-      }
-
-      return (
-        <>
-          {/* TOP */}
-          {pos && (
-            <div
-              style={{
-                position: "absolute",
-                top: 22,
-                left: 0,
-                right: 0,
-                display: "grid",
-                placeItems: "center",
-                gap: 8,
-              }}
-            >
-              <div style={{ color: "rgba(245,246,248,.85)", fontSize: 12, fontWeight: 1000 }}>
-                {nameOf(pos.top)} • {countOf(pos.top)} cartas
-              </div>
-              <FaceDownFan count={countOf(pos.top)} />
-            </div>
-          )}
-
-          {/* LEFT */}
-          {pos && (
-            <div
-              style={{
-                position: "absolute",
-                top: 156,
-                left: 18,
-                display: "grid",
-                placeItems: "center",
-                gap: 8,
-              }}
-            >
-              <div
-                style={{
-                  color: "rgba(245,246,248,.85)",
-                  fontSize: 12,
-                  fontWeight: 1000,
-                  transform: "rotate(-90deg)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {nameOf(pos.left)} • {countOf(pos.left)}
-              </div>
-              <FaceDownFan count={countOf(pos.left)} />
-            </div>
-          )}
-
-          {/* RIGHT */}
-          {pos && (
-            <div
-              style={{
-                position: "absolute",
-                top: 156,
-                right: 18,
-                display: "grid",
-                placeItems: "center",
-                gap: 8,
-              }}
-            >
-              <div
-                style={{
-                  color: "rgba(245,246,248,.85)",
-                  fontSize: 12,
-                  fontWeight: 1000,
-                  transform: "rotate(90deg)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {nameOf(pos.right)} • {countOf(pos.right)}
-              </div>
-              <FaceDownFan count={countOf(pos.right)} />
-            </div>
-          )}
-
-          {/* CENTER */}
-          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-            <div style={{ display: "grid", gap: 14, placeItems: "center" }}>
-              {/* Cartas jogadas */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                {(state?.trick || []).map((t, i) => (
-                  <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
-                    <div style={{ fontSize: 12, color: "rgba(245,246,248,.75)", fontWeight: 900 }}>
-                      {nameOf(t.seat)} {t.seat === seat ? "(você)" : ""}
-                    </div>
-                    <Card card={t.card} trumpSuit={trumpSuit} trumpCard={trumpCard} disabled />
-                  </div>
-                ))}
-              </div>
-
-              {/* Monte + trunfo virado (SEM textos “monte/trunfo…”) */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                {/* contador */}
-                <div style={{ display: "grid", justifyItems: "center", gap: 6 }}>
-                  <DeckStack count={state?.deckCount ?? 0} compact />
-                  <div style={{ fontSize: 12, color: "rgba(245,246,248,.82)", fontWeight: 1000 }}>
-                    Cartas restantes: {state?.deckCount ?? 0}
-                  </div>
-                </div>
-
-                {/* carta virada */}
-                {state?.faceUp ? (
-                  <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
-                ) : null}
-
-                {/* frase */}
-                <div
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(255,255,255,.10)",
-                    background: "rgba(0,0,0,.28)",
-                    color: "rgba(245,246,248,.78)",
-                    fontSize: 12,
-                    fontWeight: 900,
-                    letterSpacing: 0.2,
-                  }}
-                >
-                  Aguardando jogadas…
-                </div>
-
-                {/* botão de troca (só quando puder) */}
-                {canSwapTrump && (
-                  <Button onClick={swapTrump} style={{ width: "auto" }}>
-                    Trocar com {swapCandidate.valor}♣
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* BOTTOM (VOCÊ) */}
-          {pos && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: 20,
-                left: 0,
-                right: 0,
-                display: "grid",
-                placeItems: "center",
-                gap: 10,
-              }}
-            >
-              <div style={{ color: "rgba(245,246,248,.80)", fontSize: 12, fontWeight: 1000 }}>
-                {state?.names?.[pos.bottom] || "Você"} • {hand.length} cartas {isMyTurn ? "• SUA VEZ" : ""}
-              </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                {hand.map((c) => (
-                  <Card
-                    key={c.id}
-                    card={c}
-                    trumpSuit={trumpSuit}
-                    trumpCard={trumpCard}
-                    highlight={isMyTurn}
-                    disabled={!isMyTurn}
-                    onClick={() =>
-                      socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
-                        if (!res?.ok) alert(res?.err || "Jogada inválida");
-                      })
+                    title="Mesa"
+                    right={
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <Pill tone="neutral">
+                          <b style={{ color: UI.text }}>{(state?.names?.[state?.leaderSeat ?? 0] || "—")} está no serra</b>
+                        </Pill>
+                        <Pill tone={isMyTurn ? "good" : "neutral"}>
+                          Vez de:{" "}
+                          <b style={{ color: UI.text }}>
+                            {(state?.names?.[state?.turnSeat ?? 0] || "—")}
+                            {isMyTurn ? " (você)" : ""}
+                          </b>
+                        </Pill>
+                      </div>
                     }
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      );
-    })()}
-  </div>
-</Panel>
+                  >
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        border: `1px solid ${UI.border}`,
+                        background: `radial-gradient(circle at 50% 45%, rgba(255,255,255,.05), rgba(0,0,0,.16) 62%), linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.36))`,
+                        padding: 14,
+                        minHeight: 560,
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* textura leve */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: "repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0, rgba(255,255,255,.02) 2px, transparent 2px, transparent 12px)",
+                          opacity: 0.5,
+                          pointerEvents: "none",
+                        }}
+                      />
 
+                      {/* Fundo da mesa */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 10,
+                          borderRadius: 16,
+                          backgroundImage: "url(/mesa-do-jogo.png)",
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          filter: "saturate(1.05) contrast(1.02)",
+                          opacity: 0.95,
+                        }}
+                      />
+
+                      {/* Vinheta */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 10,
+                          borderRadius: 16,
+                          background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,.18), rgba(0,0,0,.55) 72%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+
+                      {(() => {
+                        const nameOf = (i) => (state?.names?.[i] ? state.names[i] : "—");
+                        const countOf = (i) => state?.handCounts?.[i] ?? 0;
+
+                        // ============================
+                        // ÂNCORAS (mexa só aqui)
+                        // ============================
+                        const fans = {
+                          top: { left: 50, top: 21, rot: 180 },
+                          left: { left: 12, top: 47, rot: 90 },
+                          right: { left: 88, top: 40, rot: -90 },
+                        };
+
+                        const anchors = {
+                          bottomHand: { left: 50, top: 87 },
+                          playedTrick: { left: 50, top: 46 },
+                          waitPill: { left: 25, top: 140 },
+                        };
+
+                        const swapCandidate =
+                          hand?.find((c) => c?.naipe === "♣" && (c?.valor === "3" || c?.valor === "4")) || null;
+                        const canSwapTrump = phase === "playing" && state?.trumpSuit === "♣" && !!state?.faceUp && !!swapCandidate;
+
+                        function swapTrump() {
+                          if (!canSwapTrump) return;
+                          socket.emit("swap_trump", { code: state.code, cardId: swapCandidate.id }, (res) => {
+                            if (!res?.ok) alert(res?.err || "Não foi possível trocar o trunfo.");
+                          });
+                        }
+
+                        return (
+                          <>
+                            {/* TOP (nome fixo + cartas móveis) */}
+                            {pos && (
+                              <>
+                                <div style={{ position: "absolute", top: 22, left: 0, right: 0, display: "grid", placeItems: "center", zIndex: 9 }}>
+                                  <NameBadge>{nameOf(pos.top)}</NameBadge>
+                                </div>
+
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    left: `${fans.top.left}%`,
+                                    top: `${fans.top.top}%`,
+                                    transform: `translate(-50%, -50%) rotate(${fans.top.rot}deg)`,
+                                    transformOrigin: "center",
+                                    zIndex: 8,
+                                    pointerEvents: "none",
+                                  }}
+                                >
+                                  <FaceDownFan count={countOf(pos.top)} />
+                                </div>
+                              </>
+                            )}
+
+                            {/* LEFT */}
+                            {pos && (
+                              <>
+                                <div style={{ position: "absolute", top: 156, left: 18, zIndex: 9 }}>
+                                  <NameBadge>{nameOf(pos.left)}</NameBadge>
+                                </div>
+
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    left: `${fans.left.left}%`,
+                                    top: `${fans.left.top}%`,
+                                    transform: `translate(-50%, -50%) rotate(${fans.left.rot}deg)`,
+                                    transformOrigin: "center",
+                                    zIndex: 8,
+                                    pointerEvents: "none",
+                                  }}
+                                >
+                                  <FaceDownFan count={countOf(pos.left)} />
+                                </div>
+                              </>
+                            )}
+
+                            {/* RIGHT */}
+                            {pos && (
+                              <>
+                                <div style={{ position: "absolute", top: 156, right: 18, zIndex: 9 }}>
+                                  <NameBadge>{nameOf(pos.right)}</NameBadge>
+                                </div>
+
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    left: `${fans.right.left}%`,
+                                    top: `${fans.right.top}%`,
+                                    transform: `translate(-50%, -50%) rotate(${fans.right.rot}deg)`,
+                                    transformOrigin: "center",
+                                    zIndex: 8,
+                                    pointerEvents: "none",
+                                  }}
+                                >
+                                  <FaceDownFan count={countOf(pos.right)} />
+                                </div>
+                              </>
+                            )}
+
+                            {/* BOTTOM NAME (fixo, sem contagem) */}
+                            {pos && (
+                              <div style={{ position: "absolute", bottom: 20, left: 0, right: 0, display: "grid", placeItems: "center", zIndex: 9 }}>
+                                <NameBadge style={{ opacity: 0.95 }}>
+                                  {nameOf(pos.bottom)} {isMyTurn ? "• SUA VEZ" : ""}
+                                </NameBadge>
+                              </div>
+                            )}
+
+                            {/* BOTTOM HAND (cartas móveis por âncora) */}
+                            {pos && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  left: `${anchors.bottomHand.left}%`,
+                                  top: `${anchors.bottomHand.top}%`,
+                                  transform: "translate(-50%, -50%)",
+                                  zIndex: 10,
+                                  display: "flex",
+                                  gap: 10,
+                                  flexWrap: "wrap",
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  maxWidth: "96%",
+                                }}
+                              >
+                                {hand.map((c) => (
+                                  <Card
+                                    key={c.id}
+                                    card={c}
+                                    trumpSuit={trumpSuit}
+                                    trumpCard={trumpCard}
+                                    highlight={isMyTurn}
+                                    disabled={!isMyTurn}
+                                    onClick={() =>
+                                      socket.emit("play_card", { code: state.code, cardId: c.id }, (res) => {
+                                        if (!res?.ok) alert(res?.err || "Jogada inválida");
+                                      })
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            )}
+
+                            {/* TRICK (cartas jogadas) — móvel por âncora */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: `${anchors.playedTrick.left}%`,
+                                top: `${anchors.playedTrick.top}%`,
+                                transform: "translate(-50%, -50%)",
+                                zIndex: 11,
+                                display: "flex",
+                                gap: 10,
+                                flexWrap: "wrap",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                maxWidth: "92%",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {(state?.trick || []).map((t, i) => (
+                                <div key={i} style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                                  <div style={{ fontSize: 12, color: "rgba(245,246,248,.75)", fontWeight: 900 }}>
+                                    {nameOf(t.seat)} {t.seat === seat ? "(você)" : ""}
+                                  </div>
+                                  <Card card={t.card} trumpSuit={trumpSuit} trumpCard={trumpCard} disabled />
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* MONTE + TRUNFO (mantém como você já aprovou) */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: "22%",
+                                top: "63%",
+                                transform: "translate(-50%,-50%)",
+                                width: 220,
+                                display: "grid",
+                                placeItems: "center",
+                                gap: 10,
+                                zIndex: 6,
+                              }}
+                            >
+                              <div style={{ position: "relative", width: 170, height: 138 }}>
+                                {/* TRUNFO: diagonal + metade por baixo */}
+                                {state?.faceUp ? (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      right: 40,
+                                      bottom: -16,
+                                      transform: "rotate(-18deg)",
+                                      transformOrigin: "bottom right",
+                                      zIndex: 1,
+                                      filter: "drop-shadow(0 14px 24px rgba(0,0,0,.45))",
+                                    }}
+                                  >
+                                    <Card card={state.faceUp} trumpSuit={trumpSuit} trumpCard={state.faceUp} compact disabled />
+                                  </div>
+                                ) : null}
+
+                                {/* MONTE em cima (contador único fica no próprio DeckStack) */}
+                                <div style={{ position: "absolute", left: 34, top: 10, zIndex: 2 }}>
+                                  <DeckStack count={state?.deckCount ?? 0} compact />
+                                </div>
+                              </div>
+
+                              {/* FRASE — móvel por âncora */}
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  left: `${anchors.waitPill.left}%`,
+                                  top: `${anchors.waitPill.top}%`,
+                                  transform: "translate(-50%, -50%)",
+                                  zIndex: 20,
+                                  padding: "8px 10px",
+                                  borderRadius: 999,
+                                  border: "1px solid rgba(255,255,255,.10)",
+                                  background: "rgba(0,0,0,.28)",
+                                  color: "rgba(245,246,248,.78)",
+                                  fontSize: 12,
+                                  fontWeight: 900,
+                                  letterSpacing: 0.2,
+                                  whiteSpace: "nowrap",
+                                  backdropFilter: "blur(6px)",
+                                }}
+                              >
+                                Aguardando jogadas…
+                              </div>
+
+                              {canSwapTrump && (
+                                <Button onClick={swapTrump} style={{ width: "auto" }}>
+                                  Trocar com {swapCandidate.valor}♣
+                                </Button>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </Panel>
 
                   {/* LOBBY / CHAT */}
                   <Panel title="Lobby / Chat">
@@ -1037,11 +1080,13 @@ export default function App() {
                           >
                             <div style={{ display: "grid", gap: 2 }}>
                               <div style={{ fontWeight: 1000 }}>
-                                Seat {i + 1} {isMe ? <span style={{ color: UI.accent }}>(você)</span> : ""}
+                                Assento {i + 1} {isMe ? <span style={{ color: UI.accent }}>(você)</span> : ""}
                               </div>
                               <div style={{ fontSize: 12, color: UI.muted }}>{n || "—"}</div>
                             </div>
-                            <div>{!occupied ? <Pill>Vazio</Pill> : ready ? <Pill tone="good">Pronto</Pill> : <Pill tone="warn">Aguardando</Pill>}</div>
+                            <div>
+                              {!occupied ? <Pill>Vazio</Pill> : ready ? <Pill tone="good">Pronto</Pill> : <Pill tone="warn">Aguardando</Pill>}
+                            </div>
                           </div>
                         );
                       })}
@@ -1098,64 +1143,29 @@ export default function App() {
         </div>
       </div>
 
-      {/* CSS GLOBAL DO PIN + LAYOUT (não mistura dentro de div) */}
+      {/* CSS global */}
       <style>{`
         *{ box-sizing: border-box; }
         img{ max-width: 100%; }
 
-        /* Linha: Criar sala | PIN | Entrar  (sem invadir) */
-	.start-actions-fixed{
-  		display: grid;
-  		grid-template-columns: minmax(170px, 220px) minmax(300px, 1fr) minmax(170px, 220px);
-  		gap: 18px;
-  		align-items: center;
-  		width: 100%;
-	}
-
-	/* cada coluna centralizada */
-	.action-col{
-  		display: grid;
-  		justify-items: center;
-  		align-content: start;
-  		min-width: 0; /* IMPORTANTÍSSIMO p/ não estourar */
-	}
-
-	.action-col.mid{
-  		justify-self: center;
-	}
-
-	/* PIN: nunca quebra/encavala */
-	.pin-wrap{
-  		display:flex;
-  		gap:10px;
-  		justify-content:center;
-  		align-items:center;
-  		width:100%;
-  		flex-wrap: nowrap;          /* <- impede quebrar */
-	}
-
-	.pin-box{
-  		box-sizing: border-box;     /* <- evita “crescer” e bagunçar */
-	}
-
-	/* Responsivo */
-	@media (max-width: 860px){
-  	.start-actions-fixed{
-    		grid-template-columns: 1fr;
-   		 gap: 14px;
- 	 }
-	}
-
-
-
-        .pin-hint{
-          font-size: 11px;
-          text-align: center;
-          color: ${UI.muted};
+        .start-actions-fixed{
+          display: grid;
+          grid-template-columns: minmax(170px, 220px) minmax(300px, 1fr) minmax(170px, 220px);
+          gap: 18px;
+          align-items: center;
+          width: 100%;
         }
-        .pin-hint[data-len="0"]{ color: ${UI.muted}; }
-        .pin-hint[data-len]:not([data-len="0"])[data-ok="1"]{ color: ${UI.good}; }
-        .pin-hint[data-len]:not([data-len="0"])[data-ok="0"]{ color: ${UI.warn}; }
+
+        .action-col{
+          display: grid;
+          justify-items: center;
+          align-content: start;
+          min-width: 0;
+        }
+
+        .action-col.mid{
+          justify-self: center;
+        }
 
         .pin-wrap{
           display:flex;
@@ -1163,9 +1173,17 @@ export default function App() {
           justify-content:center;
           align-items:center;
           width:100%;
+          flex-wrap: nowrap;
         }
 
-        /* “Metal escovado + neon” + rebites */
+        @media (max-width: 860px){
+          .start-actions-fixed{
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+          .pin-wrap{ justify-content:center; }
+        }
+
         .pin-box{
           width: 46px;
           height: 56px;
@@ -1208,12 +1226,10 @@ export default function App() {
 
           border: 1px solid rgba(255,255,255,.12);
           color: ${UI.text};
-
           text-align: center;
           font-size: 18px;
           font-weight: 1100;
           letter-spacing: 1px;
-
           outline: none;
 
           box-shadow:
